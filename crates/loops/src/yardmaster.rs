@@ -3,8 +3,7 @@ use honcho::LearningPattern;
 use loop_engineering_cognition::{LlmClient, Session, PromptDispatcher, ModelRouter};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
-use tokio::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 /// Execution mode for a slice
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -280,7 +279,7 @@ impl YardmasterLoop {
     }
 
     async fn apply_patterns_to_strategy(&mut self, patterns: Vec<LearningPattern>) {
-        let mut honcho_patterns = self.honcho_patterns.write().await;
+        let mut honcho_patterns = self.honcho_patterns.write().unwrap();
         *honcho_patterns = patterns.clone();
 
         for pattern in &patterns {
@@ -324,7 +323,7 @@ impl YardmasterLoop {
 
     /// Add slices to the slice graph
     pub async fn add_slices_to_graph(&self, slices: Vec<E2ESlice>) {
-        let mut graph = self.slice_graph.write().await;
+        let mut graph = self.slice_graph.write().unwrap();
         for slice in slices {
             graph.add_slice(slice);
         }
@@ -332,13 +331,13 @@ impl YardmasterLoop {
 
     /// Get ready slices (dependencies resolved)
     pub async fn get_ready_slices(&self) -> Vec<E2ESlice> {
-        let graph = self.slice_graph.read().await;
+        let graph = self.slice_graph.read().unwrap();
         graph.get_ready_slices().into_iter().cloned().collect()
     }
 
     /// Mark slice as resolved
     pub async fn mark_slice_resolved(&self, slice_id: &str) {
-        let mut graph = self.slice_graph.write().await;
+        let mut graph = self.slice_graph.write().unwrap();
         graph.mark_resolved(slice_id);
     }
 
@@ -349,7 +348,7 @@ impl YardmasterLoop {
 
     /// Get honcho patterns
     pub async fn get_honcho_patterns(&self) -> Vec<LearningPattern> {
-        self.honcho_patterns.read().await.clone()
+        self.honcho_patterns.read().unwrap().clone()
     }
 }
 

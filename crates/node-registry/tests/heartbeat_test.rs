@@ -1,8 +1,7 @@
 use loop_engineering_node_registry::heartbeat::{HeartbeatBroadcaster, HeartbeatListener};
 use loop_engineering_node_registry::registry::NodeRegistry;
 use loop_engineering_node_registry::proto::NodeHeartbeat;
-use std::sync::Arc;
-use tokio::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 fn make_heartbeat(node_id: &str) -> NodeHeartbeat {
@@ -37,7 +36,7 @@ async fn test_broadcast_and_receive() {
     // Give time for message to arrive
     tokio::time::sleep(Duration::from_millis(100)).await;
 
-    let reg = registry.lock().await;
+    let reg = registry.lock().unwrap();
     let node = reg.get("vm-01").unwrap();
     assert_eq!(node.node_id, "vm-01");
 

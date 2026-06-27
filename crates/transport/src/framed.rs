@@ -39,10 +39,8 @@ where
     if len > MAX_MESSAGE_SIZE {
         return Err(TransportError::MessageTooLarge { size: len, max: MAX_MESSAGE_SIZE });
     }
-    let mut buf = BytesMut::with_capacity(len);
-    // Safety: we're filling this from read_exact
-    unsafe { buf.set_len(len); }
+    let mut buf = vec![0u8; len];
     reader.read_exact(&mut buf).await?;
-    let msg = M::decode(buf)?;
+    let msg = M::decode(&buf[..])?;
     Ok(msg)
 }

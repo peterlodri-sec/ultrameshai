@@ -52,19 +52,22 @@ impl PatternStore {
 
     /// Convert LearningPattern to ResearchFinding for milvus storage
     async fn pattern_to_finding(&self, pattern: LearningPattern) -> Result<ResearchFinding> {
-        // Generate embedding from summary + metadata
-        let embedding_text = format!("{} {:?}", pattern.summary, pattern.metadata);
+        // Serialize full data into summary field as JSON
+        let payload = serde_json::json!({
+            "summary": pattern.summary,
+            "metadata": pattern.metadata,
+            "evidence_count": pattern.evidence_count,
+            "confidence": pattern.confidence,
+        });
+        let summary_json = payload.to_string();
 
-        // Use milvus-brain embedding client if available
-        // For now, create placeholder embedding (1536d zero vector)
-        // Production would call OVHcloud embedding endpoint
         let embedding = vec![0.0f32; 1536];
 
         let finding = ResearchFinding::new(
             &pattern.pattern_id,
             &pattern.pattern_type,
             &pattern.summary,
-            &embedding_text,
+            &summary_json,
             embedding,
             pattern.affected_loops.clone(),
         );
@@ -110,16 +113,24 @@ impl PatternStore {
 
     /// Convert ResearchFinding back to LearningPattern
     fn finding_to_pattern(&self, finding: ResearchFinding) -> Result<LearningPattern> {
-        // Parse metadata from summary field (simplified)
-        let metadata = serde_json::Value::Null;
+        // Attempt to parse metadata and other fields from the JSON payload in finding.summary
+        let (summary, metadata, evidence_count, confidence) = if let Ok(val) = serde_json::from_str::<serde_json::Value>(&finding.summary) {
+            let summary = val.get("summary").and_then(|s| s.as_str()).unwrap_or(&finding.summary).to_string();
+            let metadata = val.get("metadata").cloned().unwrap_or(serde_json::Value::Null);
+            let evidence_count = val.get("evidence_count").and_then(|e| e.as_i64()).unwrap_or(0);
+            let confidence = val.get("confidence").and_then(|c| c.as_f64()).unwrap_or(0.5) as f32;
+            (summary, metadata, evidence_count, confidence)
+        } else {
+            (finding.summary.clone(), serde_json::Value::Null, 0, 0.5f32)
+        };
 
         let pattern = LearningPattern::new(
             &finding.source_agent,
-            0.5, // Default confidence
-            &finding.summary,
+            confidence,
+            &summary,
             finding.tags,
         )
-        .with_evidence_count(0)
+        .with_evidence_count(evidence_count)
         .with_metadata(metadata)
         .with_embedding(finding.embedding);
 

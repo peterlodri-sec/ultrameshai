@@ -1,7 +1,6 @@
 use std::net::{SocketAddr, Ipv4Addr};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tokio::net::UdpSocket;
-use tokio::sync::Mutex;
 use prost::Message;
 use crate::proto::NodeHeartbeat;
 use crate::registry::NodeRegistry;
@@ -23,7 +22,8 @@ impl HeartbeatBroadcaster {
 
     pub async fn broadcast(&self, heartbeat: &NodeHeartbeat) -> Result<()> {
         let mut buf = Vec::with_capacity(256);
-        heartbeat.encode(&mut buf);
+        heartbeat.encode(&mut buf)
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
         self.socket.send_to(&buf, self.addr).await?;
         Ok(())
     }
@@ -59,7 +59,7 @@ impl HeartbeatListener {
         loop {
             let (len, _) = socket.recv_from(&mut buf).await?;
             if let Ok(hb) = NodeHeartbeat::decode(&buf[..len]) {
-                let mut reg = self.registry.lock().await;
+                let mut reg = self.registry.lock().unwrap();
                 reg.update(hb);
             }
         }
