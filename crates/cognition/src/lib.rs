@@ -10,4 +10,5 @@ pub use error::CognitionError;
 pub use session::{Session, ResearchSession};
 pub use prompt::{PromptTemplate, PromptDispatcher};
 pub use model_router::ModelRouter;
+#[cfg(feature = "rig")]
 pub use rig_client::{RigClient, RigExtractor};

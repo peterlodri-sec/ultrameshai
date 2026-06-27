@@ -2,6 +2,8 @@
 use crate::error::{CognitionError, Result};
 #[cfg(feature = "rig")]
 use serde::Serialize;
+#[cfg(feature = "rig")]
+use schemars::JsonSchema;
 
 /// RigClient wrapper for structured extraction
 #[cfg(feature = "rig")]
@@ -24,7 +26,7 @@ impl RigClient {
     }
 
     /// Create typed extractor for structured output
-    pub fn extractor<T: Serialize + serde::de::DeserializeOwned + schemars::JsonSchema>(
+    pub fn extractor<T: Serialize + serde::de::DeserializeOwned + JsonSchema>(
         &self,
         _preamble: &str,
     ) -> Result<RigExtractor<T>> {
@@ -38,9 +40,10 @@ pub struct RigExtractor<T> {
     _phantom: std::marker::PhantomData<T>,
 }
 
+#[cfg(feature = "rig")]
 impl<T> RigExtractor<T>
 where
-    T: Serialize + serde::de::DeserializeOwned + schemars::JsonSchema,
+    T: Serialize + serde::de::DeserializeOwned + JsonSchema,
 {
     /// Extract structured data from text
     pub async fn extract(&self, _text: &str) -> Result<T> {
