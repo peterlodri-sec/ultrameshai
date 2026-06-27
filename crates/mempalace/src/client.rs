@@ -1,4 +1,5 @@
 use sqlx::{SqlitePool, FromRow};
+use sqlx::sqlite::SqliteConnectOptions;
 use crate::error::Result;
 use crate::stats::UnitStats;
 use crate::mock::StatsQueryBuilder;
@@ -13,7 +14,18 @@ pub struct MempalaceClient {
 
 impl MempalaceClient {
     pub async fn connect(database_path: &str) -> Result<Self> {
-        let pool = SqlitePool::connect(database_path).await?;
+        let options = if database_path.starts_with("sqlite:") {
+            use std::str::FromStr;
+            SqliteConnectOptions::from_str(database_path)
+                .map_err(|e| sqlx::Error::Configuration(e.into()))?
+                .create_if_missing(true)
+        } else {
+            SqliteConnectOptions::new()
+                .filename(database_path)
+                .create_if_missing(true)
+        };
+
+        let pool = SqlitePool::connect_with(options).await?;
         
         // Run schema migration
         let schema = include_str!("schema.sql");
