@@ -1,11 +1,15 @@
 use crate::traits::{Loop, LoopInput, LoopOutput, LoopStats, Result, LoopError};
+use honcho::LearningPattern;
 use loop_engineering_cognition::{LlmClient, PromptDispatcher, ModelRouter};
 use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::RwLock;
 
 pub struct DeepResearchLoop {
     client: LlmClient,
     dispatcher: PromptDispatcher,
     stats: LoopStats,
+    honcho_patterns: Arc<RwLock<Vec<LearningPattern>>>,
 }
 
 impl DeepResearchLoop {
@@ -18,7 +22,63 @@ impl DeepResearchLoop {
             client,
             dispatcher,
             stats: LoopStats::default(),
+            honcho_patterns: Arc::new(RwLock::new(vec![])),
         }
+    }
+
+    /// Query honcho patterns mid-execution when hitting uncertainty
+    pub async fn query_patterns_mid_execution(&mut self, topic: &str) -> Result<Vec<LearningPattern>> {
+        // In production, would query PatternStore by topic similarity
+        // For now, return cached patterns filtered by topic
+        let patterns = self.honcho_patterns.read().await.clone();
+        
+        // Filter patterns relevant to current topic
+        let relevant: Vec<_> = patterns
+            .into_iter()
+            .filter(|p| p.summary.to_lowercase().contains(&topic.to_lowercase()))
+            .collect();
+
+        Ok(relevant)
+    }
+
+    /// Load honcho patterns (called at loop startup)
+    pub async fn load_honcho_patterns(&mut self, patterns: Vec<LearningPattern>) {
+        let mut honcho_patterns = self.honcho_patterns.write().await;
+        *honcho_patterns = patterns;
+    }
+
+    /// Get recommendations based on patterns
+    pub async fn get_recommendations(&self, topic: &str) -> Vec<String> {
+        let patterns = self.honcho_patterns.read().await.clone();
+        let mut recommendations = Vec::new();
+
+        for pattern in &patterns {
+            if pattern.summary.to_lowercase().contains(&topic.to_lowercase()) {
+                match pattern.pattern_type.as_str() {
+                    "success" => {
+                        recommendations.push(format!(
+                            "Recommended: {} (confidence: {:.2})",
+                            pattern.summary, pattern.confidence
+                        ));
+                    }
+                    "failure" => {
+                        recommendations.push(format!(
+                            "Avoid: {} (confidence: {:.2})",
+                            pattern.summary, pattern.confidence
+                        ));
+                    }
+                    "performance" => {
+                        recommendations.push(format!(
+                            "Performance tip: {} (confidence: {:.2})",
+                            pattern.summary, pattern.confidence
+                        ));
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        recommendations
     }
 }
 

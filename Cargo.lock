@@ -1094,6 +1094,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "futures-util",
+ "honcho",
  "loop-engineering-cognition",
  "loop-engineering-node-registry",
  "loop-engineering-transport",

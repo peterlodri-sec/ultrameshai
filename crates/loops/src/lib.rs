@@ -1,13 +1,13 @@
 pub mod traits;
 mod deepwork;
 mod bruteforce_coder;
-mod deep_research;
+pub mod deep_research;
 mod testers;
-mod yardmaster;
+pub mod yardmaster;
 mod devops;
 mod ui;
 mod red_team;
-mod juniors;
+pub mod juniors;
 mod ralph;
 
 pub use traits::{Loop, LoopInput, LoopOutput, LoopStats, LoopError, Result};

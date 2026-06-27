@@ -15,6 +15,7 @@ loop-engineering-cognition = { path = "../cognition" }
 loop-engineering-transport = { path = "../transport" }
 loop-engineering-node-registry = { path = "../node-registry" }
 milvus-brain = { path = "../milvus-brain" }
+honcho = { path = "../honcho" }
 
 [dev-dependencies]
 tokio = { version = "1.38", features = ["full", "test-util"] }
