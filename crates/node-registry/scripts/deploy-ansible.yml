@@ -1,0 +1,55 @@
+---
+# Ansible playbook for deploying node-registry to multiple servers
+# Usage: ansible-playbook -i inventory.ini deploy.yml
+
+- name: Deploy node-registry to Hetzner servers
+  hosts: all
+  become: yes
+  gather_facts: no
+
+  vars:
+    remote_dir: /opt/node-registry
+    binary_name: node-registry
+    service_name: node-registry
+
+  tasks:
+    - name: Create remote directory
+      file:
+        path: "{{ remote_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Copy binary
+      copy:
+        src: "../../target/release/{{ binary_name }}"
+        dest: "{{ remote_dir }}/{{ binary_name }}"
+        mode: '0755'
+
+    - name: Copy systemd service
+      copy:
+        src: ../../systemd/{{ service_name }}.service
+        dest: /etc/systemd/system/{{ service_name }}.service
+        mode: '0644'
+
+    - name: Reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: Enable service
+      systemd:
+        name: "{{ service_name }}"
+        enabled: yes
+
+    - name: Restart service
+      systemd:
+        name: "{{ service_name }}"
+        state: restarted
+
+    - name: Verify service is active
+      systemd:
+        name: "{{ service_name }}"
+      register: service_status
+
+    - name: Print service status
+      debug:
+        var: service_status.status.ActiveState

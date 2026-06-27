@@ -20,15 +20,15 @@ pub async fn heartbeat_handler(
     headers: axum::http::HeaderMap,
     body: Bytes,
 ) -> StatusCode {
-    // Get secret from env
+    // Get secret from env — fail fast if unset in production
     let secret = std::env::var("HEARTBEAT_SECRET")
-        .unwrap_or_else(|_| "default-secret".to_string());
-    
+        .expect("HEARTBEAT_SECRET must be set — no default fallback");
+
     // Verify signature
     let Some(signature) = extract_signature(&headers) else {
         return StatusCode::UNAUTHORIZED;
     };
-    
+
     if !verify_signature(&body, &signature, secret.as_bytes()).unwrap_or(false) {
         return StatusCode::UNAUTHORIZED;
     }
@@ -37,6 +37,11 @@ pub async fn heartbeat_handler(
     let Ok(req) = serde_json::from_slice::<HeartbeatRequest>(&body) else {
         return StatusCode::BAD_REQUEST;
     };
+
+    // Validate bounds
+    if req.validate().is_some() {
+        return StatusCode::BAD_REQUEST;
+    }
     
     // Create entry
     let entry = NodeEntry::new(NodeMetadata {

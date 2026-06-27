@@ -12,3 +12,6 @@ result-*
 
 # Deepwork scratch
 .slim/deepwork/
+
+# Encrypted env (track .env.example + .sops.yaml instead)
+.env

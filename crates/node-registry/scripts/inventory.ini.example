@@ -1,0 +1,18 @@
+# Ansible inventory for Hetzner servers
+# Usage: ansible-playbook -i inventory.ini deploy.yml
+
+[hetzner]
+nuremberg-hq ansible_host=<IP>
+fsn1-de-01 ansible_host=<IP>
+fsn1-de-02 ansible_host=<IP>
+fsn1-de-03 ansible_host=<IP>
+hel1-fi-01 ansible_host=<IP>
+hel1-fi-02 ansible_host=<IP>
+bgp-so-01 ansible_host=<IP>
+bgp-so-02 ansible_host=<IP>
+bgp-so-03 ansible_host=<IP>
+bgp-so-04 ansible_host=<IP>
+
+[all:vars]
+ansible_user=root
+ansible_ssh_private_key_file=~/.ssh/id_ed25519

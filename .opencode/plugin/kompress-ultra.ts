@@ -6,22 +6,16 @@
 import type { Plugin, PluginInput } from "@opencode-ai/plugin";
 
 export interface KompressUltraOptions {
-  /** Minimum cosine similarity to keep a message (0.0-1.0) — adaptive if adaptiveThreshold=true */
   relevanceThreshold?: number;
-  /** Hard cap on messages to keep in context */
   maxMessagesKept?: number;
-  /** milvus server URL */
   milvusUrl?: string;
-  /** mempalace SQLite db path */
   mempalaceDb?: string;
-  /** honcho pattern poll interval (ms) */
   pollIntervalMs?: number;
-  /** Enable adaptive threshold (sparse→0.8, dense→0.4) */
   adaptiveThreshold?: boolean;
-  /** Enable dropped-message digest to milvus */
   droppedMessageDigest?: boolean;
-  /** Enable slice-aware score boost */
   sliceAwareBoost?: boolean;
+  /** Show DCP status block after each prune */
+  displayPruneStatus?: boolean;
 }
 
 const DEFAULT_OPTIONS: Required<KompressUltraOptions> = {
@@ -33,6 +27,7 @@ const DEFAULT_OPTIONS: Required<KompressUltraOptions> = {
   adaptiveThreshold: true,
   droppedMessageDigest: true,
   sliceAwareBoost: true,
+  displayPruneStatus: true,
 };
 
 interface Message {
@@ -51,23 +46,19 @@ interface SystemContext {
 
 // ─── Adaptive Threshold ───────────────────────────────────────────────────────
 
-/** Compute density: messages per recent time window. High density → lower threshold. */
 function computeDensity(messages: Message[]): number {
   if (messages.length < 2) return 0.0;
-  // Simple density: count messages in last 3rd of conversation
   const windowStart = Math.floor(messages.length / 3);
   const recent = messages.slice(windowStart);
-  return recent.length / (messages.length || 1); // 0..1
+  return recent.length / (messages.length || 1);
 }
 
-/** Adaptive threshold: sparse → 0.8, dense → 0.4 */
-function adaptiveRelevanceThreshold(density: number, base: number): number {
-  // density 0 → sparse (use base+0.15), density 1 → dense (use base-0.25)
+function adaptiveThreshold(density: number, base: number): number {
   const offset = 0.15 - density * 0.4;
   return Math.max(0.4, Math.min(0.8, base + offset));
 }
 
-// ─── milvus write (dropped-message digest) ────────────────────────────────────
+// ─── milvus ─────────────────────────────────────────────────────────────────
 
 async function embedText(text: string): Promise<number[] | null> {
   const endpoint =
@@ -92,7 +83,6 @@ async function embedText(text: string): Promise<number[] | null> {
   }
 }
 
-/** Write dropped messages as research_findings to milvus (tag: kompress-discard) */
 async function writeDroppedDigest(
   dropped: Message[],
   milvusUrl: string,
@@ -121,11 +111,9 @@ async function writeDroppedDigest(
       }),
     });
   } catch {
-    // Silently skip digest write failures
+    // skip
   }
 }
-
-// ─── Scoring ─────────────────────────────────────────────────────────────────
 
 async function scoreMessage(
   text: string,
@@ -136,13 +124,12 @@ async function scoreMessage(
     const embedding = await embedText(text);
     if (!embedding) return 0.0;
 
-    // Boost: if sliceId provided, embed slice goal and add bonus
     let baseScore = await queryMilvusSimilarity(embedding, milvusUrl);
     if (sliceId && opts.sliceAwareBoost) {
       const sliceEmbedding = await embedText(`slice:${sliceId}`);
       if (sliceEmbedding) {
         const sliceScore = await queryMilvusSimilarity(sliceEmbedding, milvusUrl);
-        baseScore += Math.min(0.15, sliceScore * 0.15); // cap boost at +0.15
+        baseScore += Math.min(0.15, sliceScore * 0.15);
       }
     }
     return baseScore;
@@ -173,7 +160,7 @@ async function queryMilvusSimilarity(
         if (d > 0) return d;
       }
     } catch {
-      // continue to next collection
+      // continue
     }
   }
   return 0.0;
@@ -193,11 +180,11 @@ async function writeCompactionStats(
       { cwd: dbPath, stdio: "ignore" },
     );
   } catch {
-    // Silently skip if mempalace CLI not available
+    // skip
   }
 }
 
-// ─── Honcho patterns ──────────────────────────────────────────────────────────
+// ─── Honcho ──────────────────────────────────────────────────────────────────
 
 async function fetchHonchoPatterns(
   milvusUrl: string,
@@ -231,6 +218,54 @@ async function fetchHonchoPatterns(
   }
 }
 
+// ─── Token Estimation ─────────────────────────────────────────────────────────
+
+/** Rough token estimate: ~4 chars per token for English, clamp 1-4096. */
+function estimateTokens(text: string): number {
+  const len = text.length;
+  if (len === 0) return 1;
+  return Math.max(1, Math.min(4096, Math.ceil(len / 4)));
+}
+
+// ─── DCP Status Display ───────────────────────────────────────────────────────
+
+interface DcpStats {
+  model: string;
+  pruned: number;
+  kept: number;
+  total: number;
+  threshold: number;
+  density: number;
+  history: number[];
+  tokensPruned: number;
+  tokensKept: number;
+}
+
+function buildDcpDisplay(stats: DcpStats): Message {
+  const saved = stats.tokensPruned - stats.tokensKept;
+  const lines = [
+    `── DCP ${stats.model} ──`,
+    `  pruned  ${stats.pruned} msg  ${stats.tokensPruned.toLocaleString()} tok  (threshold=${stats.threshold.toFixed(2)}, density=${stats.density.toFixed(2)})`,
+    `  kept    ${stats.kept} msg  ${stats.tokensKept.toLocaleString()} tok`,
+    `  saved   ${saved > 0 ? "+" : ""}${saved.toLocaleString()} tok`,
+    `  total   ${stats.total} msg → ${stats.kept} msg`,
+  ];
+
+  if (stats.history.length > 0) {
+    const avg = (stats.history.reduce((a, b) => a + b, 0) / stats.history.length).toFixed(1);
+    lines.push(`  history avg ${avg} msg  (${stats.history.slice(-3).join(", ")})`);
+  }
+
+  lines.push("──");
+
+  return {
+    role: "system",
+    content: lines.join("\n"),
+    _dcp: true,
+    _dcpPruneEvent: true,
+  } as Message;
+}
+
 // ─── Plugin ───────────────────────────────────────────────────────────────────
 
 const opts = { ...DEFAULT_OPTIONS };
@@ -246,11 +281,9 @@ export default (
   _input: PluginInput,
   options?: KompressUltraOptions,
 ) => {
-  // Merge with defaults at every invocation (hot reload support)
   const { ...mergedOpts } = { ...DEFAULT_OPTIONS, ...options };
 
   return {
-    /** Prune low-relevance messages with adaptive threshold + slice boost + dropped digest */
     "experimental.chat.messages.transform": async (
       input: unknown,
       _output: unknown,
@@ -259,13 +292,12 @@ export default (
       const messages = ctx.messages ?? [];
       if (messages.length <= mergedOpts.maxMessagesKept) return;
 
-      // 1. Adaptive threshold
       const density = computeDensity(messages);
       const threshold = mergedOpts.adaptiveThreshold
-        ? adaptiveRelevanceThreshold(density, mergedOpts.relevanceThreshold)
+        ? adaptiveThreshold(density, mergedOpts.relevanceThreshold)
         : mergedOpts.relevanceThreshold;
 
-      // 2. Score all messages
+      // Score + split
       const scored = await Promise.all(
         messages.map((msg) => ({
           msg,
@@ -274,7 +306,6 @@ export default (
       );
       const scoredResolved = await Promise.all(scored);
 
-      // 3. Split kept vs dropped
       const kept: Message[] = [];
       const dropped: Message[] = [];
       for (const s of scoredResolved) {
@@ -282,7 +313,7 @@ export default (
         else dropped.push(s.msg);
       }
 
-      // 4. If over cap, drop lowest-scoring first
+      // Drop weakest until under cap
       const final =
         kept.length > mergedOpts.maxMessagesKept
           ? kept
@@ -296,21 +327,44 @@ export default (
 
       const prunedCount = messages.length - final.length;
       if (prunedCount > 0) {
-        (ctx as { messages: Message[] }).messages = final;
+        // Update history
+        state.contextSizeHistory.push(messages.length);
+        if (state.contextSizeHistory.length > 10) {
+          state.contextSizeHistory = state.contextSizeHistory.slice(-10);
+        }
+
+        // Build DCP display block
+        const model = (ctx as Record<string, unknown>).model as string || "unknown";
+        const tokensPruned = dropped.reduce((sum, m) => sum + estimateTokens(m.content), 0);
+        const tokensKept = final.reduce((sum, m) => sum + estimateTokens(m.content), 0);
+        const dcpStats: DcpStats = {
+          model,
+          pruned: prunedCount,
+          kept: final.length,
+          total: messages.length,
+          threshold,
+          density,
+          history: [...state.contextSizeHistory],
+          tokensPruned,
+          tokensKept,
+        };
+        const dcpDisplay = buildDcpDisplay(dcpStats);
+
+        // Inject display message + update context
+        (ctx as { messages: Message[] }).messages = [dcpDisplay, ...final];
+
         await writeCompactionStats(
           mergedOpts.mempalaceDb,
           prunedCount,
           final.length,
         );
 
-        // 5. Dropped-message digest
         if (mergedOpts.droppedMessageDigest && dropped.length > 0) {
           await writeDroppedDigest(dropped, mergedOpts.milvusUrl);
         }
       }
     },
 
-    /** Inject kompress directives + honcho patterns + adaptive threshold info */
     "experimental.chat.system.transform": async (
       input: unknown,
       _output: unknown,
@@ -319,34 +373,38 @@ export default (
       const now = Date.now();
 
       if (now - state.lastPatternFetch > mergedOpts.pollIntervalMs) {
-        const topic = ctx.taskGoal ?? ctx.messages?.[0]?.content?.slice(0, 100) ?? "general";
-        state.cachedPatterns = await fetchHonchoPatterns(mergedOpts.milvusUrl, topic);
+        const topic =
+          ctx.taskGoal ?? ctx.messages?.[0]?.content?.slice(0, 100) ?? "general";
+        state.cachedPatterns = await fetchHonchoPatterns(
+          mergedOpts.milvusUrl,
+          topic,
+        );
         state.lastPatternFetch = now;
       }
 
       const density = computeDensity(ctx.messages ?? []);
       const activeThreshold = mergedOpts.adaptiveThreshold
-        ? adaptiveRelevanceThreshold(density, mergedOpts.relevanceThreshold)
+        ? adaptiveThreshold(density, mergedOpts.relevanceThreshold)
         : mergedOpts.relevanceThreshold;
 
-      const directives = [
-        "## Kompress DCP Directives",
-        `- adaptive threshold: ${activeThreshold.toFixed(2)} (density=${density.toFixed(2)})`,
-        `- max context messages: ${mergedOpts.maxMessagesKept}`,
-        `- prune low-similarity messages before context limit`,
-        `- slice-aware boost: ${mergedOpts.sliceAwareBoost ? "on" : "off"} (+0.15 max)`,
-        `- dropped-message digest: ${mergedOpts.droppedMessageDigest ? "on" : "off"}`,
+      const dcpBlock = [
+        "## DCP auto-pruning",
+        `- threshold ${activeThreshold.toFixed(2)} (density ${density.toFixed(2)})`,
+        `- max-kept ${mergedOpts.maxMessagesKept} msg`,
+        `- adapt-threshold ${mergedOpts.adaptiveThreshold ? "on" : "off"}`,
+        `- slice-boost ${mergedOpts.sliceAwareBoost ? "on" : "off"}`,
+        `- dropped-digest ${mergedOpts.droppedMessageDigest ? "on" : "off"}`,
+        `- milvus ${mergedOpts.milvusUrl}`,
       ];
 
       if (state.cachedPatterns.length > 0) {
-        directives.push("", "## Relevant Honcho Patterns");
-        state.cachedPatterns.forEach((p) => directives.push(`- ${p}`));
+        dcpBlock.push("", "## honcho patterns");
+        state.cachedPatterns.forEach((p) => dcpBlock.push(`- ${p}`));
       }
 
-      ctx.systemPrompt = (ctx.systemPrompt ?? "") + "\n\n" + directives.join("\n");
+      ctx.systemPrompt = (ctx.systemPrompt ?? "") + "\n\n" + dcpBlock.join("\n");
     },
 
-    /** Trigger compaction before context limit hit */
     "experimental.compaction.autocontinue": async (
       input: unknown,
       _output: unknown,
@@ -359,7 +417,6 @@ export default (
       if (messages.length < mergedOpts.maxMessagesKept) return;
 
       state.lastCompactionAt = now;
-      state.contextSizeHistory.push(messages.length);
 
       return { action: "compaction.trigger", reason: "context_limit_near" };
     },

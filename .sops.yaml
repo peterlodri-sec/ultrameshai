@@ -2,5 +2,4 @@
 # age key from ~/.config/sops/age/keys.txt
 creation_rules:
   - path_regex: .env$
-    age: >-
-      age1ql3z7hjy54q8wlnfxqs5w6ffp67q2q4v8t4zq8f7pq凝G5X7yR
+    age: age1zcwylk4gvpte5plwzd9e4nadq7xkf2fldk9xvl404clk4katsdcsqj5c6f
