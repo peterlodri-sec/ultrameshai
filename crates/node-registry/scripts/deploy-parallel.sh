@@ -3,8 +3,12 @@
 
 set -e
 
-# Server list - update with your Hetzner servers
-SERVERS=(
+# Get script directory and project root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+
+# Server lists (parallel arrays for compatibility)
+SERVER_NAMES=(
     "nuremberg-hq"
     "fsn1-de-01"
     "fsn1-de-02"
@@ -17,12 +21,83 @@ SERVERS=(
     "bgp-so-04"
 )
 
+SERVER_DESC=(
+    "Nuremberg HQ (Primary)"
+    "Falkenstein DE-01"
+    "Falkenstein DE-02"
+    "Falkenstein DE-03"
+    "Helsinki FI-01"
+    "Helsinki FI-02"
+    "BGP SO-01"
+    "BGP SO-02"
+    "BGP SO-03"
+    "BGP SO-04"
+)
+
 # Configuration
 REMOTE_DIR="/opt/node-registry"
 REMOTE_USER="root"
-BINARY_PATH="target/debug/node-registry"
-SYSTEMD_SERVICE="systemd/node-registry.service"
+BINARY_PATH="$PROJECT_ROOT/target/release/node-registry"
+SYSTEMD_SERVICE="$PROJECT_ROOT/crates/node-registry/systemd/node-registry.service"
 MAX_PARALLEL=5  # Max concurrent deployments
+
+# Interactive server selection
+echo "========================================="
+echo "  Node Registry Deployment"
+echo "========================================="
+echo ""
+echo "Select servers to deploy to:"
+echo ""
+
+# Display numbered list
+for i in "${!SERVER_NAMES[@]}"; do
+    echo "  [$((i+1))] ${SERVER_DESC[$i]} (${SERVER_NAMES[$i]})"
+done
+echo "  [a] All servers"
+echo "  [q] Quit"
+echo ""
+
+# Get selection
+read -p "Enter selection (e.g., 1,3,5 or a): " selection
+
+if [[ "$selection" == "q" ]]; then
+    echo "Deployment cancelled."
+    exit 0
+fi
+
+if [[ "$selection" == "a" ]]; then
+    SERVERS=("${SERVER_NAMES[@]}")
+else
+    # Parse comma-separated numbers
+    IFS=',' read -ra nums <<< "$selection"
+    SERVERS=()
+    for num in "${nums[@]}"; do
+        num=$(echo "$num" | tr -d ' ')
+        if [[ "$num" =~ ^[0-9]+$ ]] && [ "$num" -ge 1 ] && [ "$num" -le "${#SERVER_NAMES[@]}" ]; then
+            SERVERS+=("${SERVER_NAMES[$((num-1))]}")
+        else
+            echo "Invalid selection: $num"
+            exit 1
+        fi
+    done
+fi
+
+if [ ${#SERVERS[@]} -eq 0 ]; then
+    echo "No servers selected."
+    exit 1
+fi
+
+echo ""
+echo "Selected servers (${#SERVERS[@]}):"
+for server in "${SERVERS[@]}"; do
+    echo "  - $server"
+done
+echo ""
+read -p "Continue? (y/n): " confirm
+if [[ "$confirm" != "y" ]]; then
+    echo "Deployment cancelled."
+    exit 0
+fi
 
 # Colors for output
 RED='\033[0;31m'
