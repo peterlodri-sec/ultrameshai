@@ -3,7 +3,7 @@ use mempalace::{MempalaceClient, UnitStats, StatsQueryBuilder};
 #[tokio::test]
 async fn test_connect_creates_schema() {
     let db_path = "/tmp/mempalace_test_schema.db";
-    let _client = MempalaceClient::connect(db_path).await.unwrap();
+    let client = MempalaceClient::connect(db_path).await.unwrap();
     
     // Verify table exists by querying via client
     let all = client.query_all().await.unwrap();
