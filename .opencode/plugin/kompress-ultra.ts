@@ -122,7 +122,7 @@ async function scoreMessage(
 ): Promise<number> {
   try {
     const embedding = await embedText(text);
-    if (!embedding) return 0.0;
+    if (!embedding) return 0.5; // milvus down → neutral score, don't kill context
 
     let baseScore = await queryMilvusSimilarity(embedding, milvusUrl);
     if (sliceId && opts.sliceAwareBoost) {
@@ -134,7 +134,7 @@ async function scoreMessage(
     }
     return baseScore;
   } catch {
-    return 0.0;
+    return 0.5; // milvus down → neutral score
   }
 }
 
@@ -321,18 +321,30 @@ export default (
 
       // Score + split
       const scored = await Promise.all(
-        messages.map((msg) => ({
+        messages.map((msg, idx) => ({
           msg,
+          idx,
           score: scoreMessage(msg.content, mergedOpts.milvusUrl, ctx.sliceId),
         })),
       );
-      const scoredResolved = await Promise.all(scored);
 
       const kept: Message[] = [];
       const dropped: Message[] = [];
-      for (const s of scoredResolved) {
-        if (s.score >= threshold) kept.push(s.msg);
+      for (const s of scored) {
+        // Always keep the last N messages (recency protection)
+        const isRecent = s.idx >= messages.length - 5;
+        if (s.score >= threshold || isRecent) kept.push(s.msg);
         else dropped.push(s.msg);
+      }
+
+      // Safety guard: never prune more than 50% of context
+      const maxPrune = Math.floor(messages.length * 0.5);
+      if (dropped.length > maxPrune) {
+        // Restore the weakest kept messages until we're within limits
+        const excess = dropped.length - maxPrune;
+        const restored = dropped.slice(0, excess);
+        kept.push(...restored);
+        dropped.splice(0, excess);
       }
 
       // Drop weakest until under cap
@@ -340,12 +352,15 @@ export default (
         kept.length > mergedOpts.maxMessagesKept
           ? kept
               .sort((a, b) => {
-                const sa = scoredResolved.find((s) => s.msg === a)?.score ?? 0;
-                const sb = scoredResolved.find((s) => s.msg === b)?.score ?? 0;
+                const sa = scored.find((s) => s.msg === a)?.score ?? 0;
+                const sb = scored.find((s) => s.msg === b)?.score ?? 0;
                 return sa - sb;
               })
               .slice(-mergedOpts.maxMessagesKept)
           : kept;
+
+      // Safety: never produce empty context
+      if (final.length === 0) return;
 
       const prunedCount = messages.length - final.length;
       if (prunedCount > 0) {
