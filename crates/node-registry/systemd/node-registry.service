@@ -1,0 +1,17 @@
+[Unit]
+Description=Node Registry Service
+After=network.target tailscaled.service
+
+[Service]
+Type=exec
+ExecStart=/opt/node-registry/node-registry
+WorkingDirectory=/opt/node-registry
+Environment="RUST_LOG=info"
+Environment="TAILSCALE_API_KEY=tskey-..."
+Environment="NODE_REGISTRY_TAILNET=todolistsec.ts.net"
+Environment="HEARTBEAT_SECRET=..."
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
