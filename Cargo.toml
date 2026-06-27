@@ -8,4 +8,5 @@ members = [
     "crates/agents",
     "crates/milvus-brain",
     "crates/mempalace",
+    "crates/honcho",
 ]
