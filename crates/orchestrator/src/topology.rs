@@ -7,18 +7,21 @@ use notify::{Watcher, RecommendedWatcher, RecursiveMode, Event};
 use tokio::sync::mpsc;
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "rig", derive(schemars::JsonSchema))]
 pub enum NodeRole {
     Compute,
     Worker,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "rig", derive(schemars::JsonSchema))]
 pub enum RuntimeType {
     Bun,
     RustNative,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "rig", derive(schemars::JsonSchema))]
 pub struct NodeProfile {
     pub ip: IpAddr,
     pub role: NodeRole,
@@ -120,7 +123,7 @@ impl ClusterTopologyRouter {
 #[cfg(feature = "rig")]
 pub mod rig_tool {
     use super::*;
-    use rig_core::tool::Tool;
+    use rig::tool::Tool;
     use schemars::JsonSchema;
 
     #[derive(Deserialize, JsonSchema)]
@@ -156,6 +159,14 @@ pub mod rig_tool {
         type Error = RouterToolError;
         type Args = RouteArgs;
         type Output = RouteOutput;
+
+        async fn definition(&self, description: String) -> rig::completion::ToolDefinition {
+            rig::completion::ToolDefinition {
+                name: Self::NAME.to_string(),
+                description,
+                parameters: serde_json::to_value(schemars::schema_for!(RouteArgs)).unwrap(),
+            }
+        }
 
         async fn call(&self, args: Self::Args) -> Result<Self::Output, Self::Error> {
             let node = self.router.find_optimal_node(&args.capability);
@@ -263,5 +274,25 @@ mod tests {
         }
 
         assert!(success, "Topology did not hot-reload dynamically!");
+    }
+
+    #[cfg(feature = "rig")]
+    #[tokio::test]
+    async fn test_rig_tool_routing() {
+        use rig::tool::Tool;
+        let mut file = NamedTempFile::new().unwrap();
+        write!(file, "{}", make_test_toml()).unwrap();
+
+        let router = Arc::new(ClusterTopologyRouter::new(file.path()).unwrap());
+        let tool = rig_tool::ClusterRouterTool::new(router);
+
+        let args = rig_tool::RouteArgs {
+            capability: "cuda".to_string(),
+        };
+
+        let output = tool.call(args).await.unwrap();
+        assert!(output.found);
+        let node = output.node.unwrap();
+        assert_eq!(node.ip, "100.64.0.10".parse::<IpAddr>().unwrap());
     }
 }
