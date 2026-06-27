@@ -12,6 +12,7 @@ thiserror = "1.0"
 tracing = "0.1"
 prost = "0.14"
 async-trait = "0.1"
+milvus-brain = { path = "../milvus-brain" }
 
 [dev-dependencies]
 tokio = { version = "1.38", features = ["full", "test-util"] }

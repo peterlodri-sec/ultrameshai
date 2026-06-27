@@ -1,10 +1,10 @@
 use crate::traits::{Loop, LoopInput, LoopOutput, LoopStats, Result, LoopError};
-use loop_engineering_cognition::{LlmClient, Session, PromptDispatcher, ModelRouter};
+use loop_engineering_cognition::{LlmClient, ResearchSession, PromptDispatcher, ModelRouter};
 use std::collections::HashMap;
 
 pub struct DeepResearchLoop {
     client: LlmClient,
-    session: Session,
+    session: Option<ResearchSession>,
     dispatcher: PromptDispatcher,
     stats: LoopStats,
 }
@@ -14,11 +14,26 @@ impl DeepResearchLoop {
         let router = ModelRouter::default();
         let client = router.create_client("research", "mock-key", "http://localhost")
             .unwrap_or_else(|| LlmClient::mock("openai/gpt-4-turbo"));
-        let session = Session::new("deep-research-loop", "unit-000");
         let dispatcher = PromptDispatcher::default();
         Self {
             client,
-            session,
+            session: None,
+            dispatcher,
+            stats: LoopStats::default(),
+        }
+    }
+
+    pub async fn with_session(milvus_uri: &str, source_agent: &str) -> Self {
+        let router = ModelRouter::default();
+        let client = router.create_client("research", "mock-key", "http://localhost")
+            .unwrap_or_else(|| LlmClient::mock("openai/gpt-4-turbo"));
+        let session = ResearchSession::new("deep-research-loop", "unit-000", milvus_uri, source_agent)
+            .await
+            .unwrap();
+        let dispatcher = PromptDispatcher::default();
+        Self {
+            client,
+            session: Some(session),
             dispatcher,
             stats: LoopStats::default(),
         }

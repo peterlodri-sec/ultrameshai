@@ -1,4 +1,5 @@
 use crate::client::{ChatMessage, Role};
+use milvus_brain::{MilvusClient, ResearchFinding, QueryBuilder};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Clone)]
@@ -54,5 +55,72 @@ impl Session {
             unit_id: self.unit_id.clone(),
             message_count: self.messages.len(),
         }
+    }
+}
+
+/// ResearchSession - wraps Session + MilvusClient for research workflows
+pub struct ResearchSession {
+    session: Session,
+    milvus: MilvusClient,
+    source_agent: String,
+}
+
+impl ResearchSession {
+    pub async fn new(loop_id: &str, unit_id: &str, milvus_uri: &str, source_agent: &str) -> crate::error::Result<Self> {
+        let session = Session::new(loop_id, unit_id);
+        let milvus = MilvusClient::connect(milvus_uri)
+            .await
+            .map_err(|e| crate::error::CognitionError::Provider(e.to_string()))?;
+        Ok(Self {
+            session,
+            milvus,
+            source_agent: source_agent.to_string(),
+        })
+    }
+
+    /// Write finding with auto-generated embedding
+    pub async fn write_finding(&self, summary: &str, tags: Vec<String>) -> crate::error::Result<()> {
+        // Generate embedding via milvus (auto-embedding enabled on server)
+        let finding = ResearchFinding::with_uuid(
+            &self.source_agent,
+            &self.session.loop_id,
+            summary,
+            vec![], // Empty - milvus server will embed if configured
+            tags,
+        );
+        self.milvus.write_finding(finding)
+            .await
+            .map_err(|e| crate::error::CognitionError::Provider(e.to_string()))?;
+        Ok(())
+    }
+
+    /// Similarity search + metadata filter
+    pub async fn research_find(&self, query: &str, top_k: usize) -> crate::error::Result<Vec<ResearchFinding>> {
+        let query_builder = QueryBuilder::new()
+            .similarity(query, top_k)
+            .filter_agent(&self.source_agent)
+            .build();
+        self.milvus.search(query_builder)
+            .await
+            .map_err(|e| crate::error::CognitionError::Provider(e.to_string()))
+    }
+
+    /// Return digest of all findings for this session
+    pub async fn summarize_findings(&self) -> crate::error::Result<String> {
+        let findings = self.research_find(&self.session.loop_id, 100).await?;
+        let digest: Vec<String> = findings.iter()
+            .map(|f| format!("- [{}] {}", f.topic, f.summary))
+            .collect();
+        Ok(digest.join("\n"))
+    }
+
+    /// Access underlying session
+    pub fn session(&self) -> &Session {
+        &self.session
+    }
+
+    /// Access underlying session (mutable)
+    pub fn session_mut(&mut self) -> &mut Session {
+        &mut self.session
     }
 }

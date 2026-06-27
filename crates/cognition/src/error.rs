@@ -22,6 +22,9 @@ pub enum CognitionError {
     
     #[error("Session error: {0}")]
     Session(String),
+    
+    #[error("Provider error: {0}")]
+    Provider(String),
 }
 
 pub type Result<T> = std::result::Result<T, CognitionError>;
