@@ -1608,6 +1608,7 @@ name = "loop-engineering-orchestrator"
 version = "0.1.0"
 dependencies = [
  "arc-swap",
+ "loop-engineering-node-registry",
  "notify",
  "rig-core",
  "schemars 0.8.22",
