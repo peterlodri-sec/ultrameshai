@@ -75,7 +75,7 @@ def "unit snapshot" [
   $snapshot_path
 }
 
-# Kill a unit (with snapshot)
+# Kill a unit (with snapshot + mempalace write)
 def "unit kill" [
   unit_id: string
   pid: int
@@ -84,15 +84,32 @@ def "unit kill" [
   let timestamp = (date now | into int)
   let snapshot_path = $"/tmp/units/($unit_id)_snapshot_($timestamp)"
   cp -r $workdir $snapshot_path
+  
+  # Read manifest for loop type and slice info
+  let manifest = open $"($workdir)/manifest.json"
+  
   # Kill only if pid is valid and different from current shell
   if $pid != 0 and $pid != $nu.pid {
     kill $pid
   }
+  
+  # Write stats to mempalace
+  let script_dir = (git rev-parse --show-toplevel | default $env.PWD | path join "scripts")
+  nu $"($script_dir)/mempalace-write.nu" \
+    --db-path "mempalace.db" \
+    --unit-id $unit_id \
+    --slice-id $manifest.slice_id \
+    --loop-type $manifest.loop_type \
+    --spawned-at $manifest.spawned_at \
+    --died-at $timestamp \
+    --status "killed" \
+    --snapshot-path $snapshot_path
+  
   {
     unit_id: $unit_id,
     status: "killed",
     snapshot_path: $snapshot_path,
-    died_at: (date now | into int),
+    died_at: $timestamp,
   } | to json | save --force $"($workdir)/stats.json"
 }
 

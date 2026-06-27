@@ -1,0 +1,21 @@
+[package]
+name = "mempalace"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite"] }
+tokio = { version = "1.38", features = ["full"] }
+thiserror = "1.0"
+tracing = "0.1"
+loop-engineering-transport = { path = "../transport" }
+milvus-brain = { path = "../milvus-brain", optional = true }
+async-trait = "0.1"
+
+[dev-dependencies]
+tokio = { version = "1.38", features = ["full", "test-util"] }
+tempfile = "3.10"
+
+[features]
+default = []
+milvus-compat = ["milvus-brain"]

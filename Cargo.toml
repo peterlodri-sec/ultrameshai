@@ -7,4 +7,5 @@ members = [
     "crates/loops",
     "crates/agents",
     "crates/milvus-brain",
+    "crates/mempalace",
 ]
