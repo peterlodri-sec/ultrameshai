@@ -1,0 +1,17 @@
+[package]
+name = "loop-engineering-transport"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1.38", features = ["full"] }
+tokio-util = { version = "0.7", features = ["codec"] }
+prost = "0.14"
+bytes = "1.6"
+thiserror = "1.0"
+
+[build-dependencies]
+prost-build = "0.14"
+
+[dev-dependencies]
+tokio = { version = "1.38", features = ["full", "test-util"] }
