@@ -1,16 +1,4 @@
 // kompress-ultra: 4-role living context layer (Composer, Pruner, Rewriter, Circulator)
-//
-// ⚠️  DO NOT RUN WITH DCP (Opencode-DCP) PLUGIN ⚠️
-// Both plugins prune and compress context. Running together causes double-compression:
-// - DCP compresses → kompress compresses again → information loss, model degradation
-// - Safety floors conflict: each plugin thinks it's the only one protecting messages
-// - Token budgets calculated independently → unpredictable context sizes
-//
-// Disable DCP before enabling kompress:
-//   1. Remove DCP from opencode.json plugin list
-//   2. Delete .opencode/plugin/dcp*.ts if present
-//   3. Restart OpenCode
-//
 import type { Plugin, PluginInput } from "@opencode-ai/plugin";
 import { compressMessage, CompressionLevel } from "./rewriter";
 
@@ -650,14 +638,6 @@ export default (
       _output: unknown,
     ) => {
       const ctx = input as SystemContext;
-
-      // ⚠️ DCP conflict guard — double-compression kills context quality
-      const sp = ctx.systemPrompt ?? "";
-      if (sp.includes("DCP") || sp.includes("dcp-") || sp.includes("opencode-dcp")) {
-        ctx.systemPrompt = sp + "\n\n⚠️ WARNING: DCP plugin detected. DCP and kompress must NOT run together. Double-compression will degrade context quality. Disable DCP or kompress.";
-        return;
-      }
-
       const now = Date.now();
 
       // Circuit breaker check
