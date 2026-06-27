@@ -1,9 +1,18 @@
-// kompress-ultra: experimental context pruning plugin for ultrameshai
-// /caveman ultra inside — drop articles/filler/hedging, abbreviate prose words,
-// code symbols/API names/errors exact, pattern: [thing] [action] [reason].
-// resume normal: security warnings, irreversible actions, stop caveman / normal mode.
-// backends: milvus-brain (vector similarity), mempalace (stats), honcho (patterns).
+// kompress-ultra: 4-role living context layer (Composer, Pruner, Rewriter, Circulator)
+//
+// ⚠️  DO NOT RUN WITH DCP (Opencode-DCP) PLUGIN ⚠️
+// Both plugins prune and compress context. Running together causes double-compression:
+// - DCP compresses → kompress compresses again → information loss, model degradation
+// - Safety floors conflict: each plugin thinks it's the only one protecting messages
+// - Token budgets calculated independently → unpredictable context sizes
+//
+// Disable DCP before enabling kompress:
+//   1. Remove DCP from opencode.json plugin list
+//   2. Delete .opencode/plugin/dcp*.ts if present
+//   3. Restart OpenCode
+//
 import type { Plugin, PluginInput } from "@opencode-ai/plugin";
+import { compressMessage, CompressionLevel } from "./rewriter";
 
 export interface KompressUltraOptions {
   relevanceThreshold?: number;
@@ -44,6 +53,128 @@ interface SystemContext {
   [key: string]: unknown;
 }
 
+interface BrainState {
+  status: string;
+  patterns_total: number;
+  findings_total: number;
+  units_processed: number;
+  last_data_at_ms: number;
+  poll_count: number;
+  interval_ms: number;
+}
+
+interface KompressStats {
+  model: string;
+  pruned: number;
+  kept: number;
+  total: number;
+  threshold: number;
+  density: number;
+  history: number[];
+  tokensPruned: number;
+  tokensKept: number;
+}
+
+// ─── Circuit Breaker ──────────────────────────────────────────────────────────
+
+const circuitBreaker = { failures: 0, open_until: 0 };
+
+function isCircuitOpen(): boolean {
+  return Date.now() < circuitBreaker.open_until;
+}
+
+function recordSuccess() {
+  circuitBreaker.failures = 0;
+}
+
+function recordFailure(): void {
+  circuitBreaker.failures++;
+  if (circuitBreaker.failures >= 3) {
+    circuitBreaker.open_until = Date.now() + 60_000; // 60s cooldown
+  }
+}
+
+// ─── Circulator Queue (async, non-blocking) ──────────────────────────────────
+
+interface CirculatorEntry {
+  session_id: string;
+  agent_type: string;
+  message_role: string;
+  content_hash: string;
+  classification: "fact" | "event" | "instruction" | "task";
+  topic_key?: string;
+  residual: string;
+  timestamp_ms: number;
+}
+
+const circulatorQueue: CirculatorEntry[] = [];
+const CIRCULATOR_CAP = 100;
+const CIRCULATOR_BATCH = 10;
+
+function classifyMessage(content: string): "fact" | "event" | "instruction" | "task" {
+  const lower = content.toLowerCase();
+  if (/\b(shall|should|must|need|implement|create|build|fix|update)\b/.test(lower)) return "instruction";
+  if (/\b(todo|task|step|goal|objective)\b/.test(lower)) return "task";
+  if (/\b(did|done|completed|failed|error|changed|updated)\b/.test(lower)) return "event";
+  return "fact";
+}
+
+function enqueueCirculator(entry: CirculatorEntry): void {
+  if (circulatorQueue.length >= CIRCULATOR_CAP) {
+    spillCirculatorOverflow([entry]);
+    return;
+  }
+  circulatorQueue.push(entry);
+  if (circulatorQueue.length >= CIRCULATOR_BATCH) {
+    flushCirculatorAsync();
+  }
+}
+
+async function flushCirculatorAsync(): Promise<void> {
+  if (circulatorQueue.length === 0) return;
+  const entries = circulatorQueue.splice(0);
+  // Async: embed + write to milvus pruned_context collection
+  // Milvus down → spill to overflow file
+  try {
+    const texts = entries.map(e => e.residual).join("\n---\n");
+    const embedding = await embedText(texts);
+    if (!embedding) {
+      spillCirculatorOverflow(entries);
+      return;
+    }
+    // Write to milvus (non-blocking)
+    fetch(`${DEFAULT_OPTIONS.milvusUrl}/v1/insert`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        collection_name: "pruned_context",
+        fields: {
+          finding_id: `kompress-circ-${Date.now()}`,
+          agent_id: "kompress",
+          topic: "pruned-context",
+          summary: texts.slice(0, 4096),
+          embedding,
+          tags: entries.map(e => e.classification),
+          created_at: Date.now(),
+          embedding_model: "bge-m3",
+        },
+      }),
+    }).catch(() => spillCirculatorOverflow(entries));
+  } catch {
+    spillCirculatorOverflow(entries);
+  }
+}
+
+function spillCirculatorOverflow(entries: CirculatorEntry[]): void {
+  const path = `${process.env.HOME}/.cache/ultrameshai/overflow-circulator.jsonl`;
+  try {
+    const lines = entries.map(e => JSON.stringify(e)).join("\n") + "\n";
+    Bun.write(path, lines, { append: true });
+  } catch {
+    // silent
+  }
+}
+
 // ─── Adaptive Threshold ───────────────────────────────────────────────────────
 
 function computeDensity(messages: Message[]): number {
@@ -58,9 +189,10 @@ function adaptiveThreshold(density: number, base: number): number {
   return Math.max(0.4, Math.min(0.8, base + offset));
 }
 
-// ─── milvus ─────────────────────────────────────────────────────────────────
+// ─── Milvus Embedding ─────────────────────────────────────────────────────────
 
 async function embedText(text: string): Promise<number[] | null> {
+  if (isCircuitOpen()) return null;
   const endpoint =
     process.env.OVHCLOUD_EMBEDDING_URL ??
     "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1/chat/completions";
@@ -115,28 +247,79 @@ async function writeDroppedDigest(
   }
 }
 
-async function scoreMessage(
+// ─── MessageScore + Safety Floors (Pruner) ───────────────────────────────────
+
+export interface MessageScore {
+  relevance: number;   // 0-1, vector similarity to task goal
+  recency: number;     // 0-1, Ebbinghaus decay
+  structural: number;  // 0-1, user/code/error boost
+  total: number;       // weighted sum
+  protected: boolean;  // last 5, user, code, error
+}
+
+export function isProtected(msg: Message, index: number, total: number): boolean {
+  if (index >= total - 5) return true;
+  if (msg.role === 'user') return true;
+  if (msg.content?.includes('```')) return true;
+  if (msg.type === 'error' || msg.content?.startsWith('Error:')) return true;
+  return false;
+}
+
+export function ebbinghausDecay(age: number): number {
+  const halfLife = 5;
+  return Math.exp(-age / halfLife);
+}
+
+export function structuralBoost(msg: Message): number {
+  let boost = 0.3;
+  if (msg.role === 'user') boost = 0.9;
+  if (msg.content?.includes('```')) boost = Math.max(boost, 0.8);
+  if (msg.type === 'error' || msg.content?.startsWith('Error:')) boost = Math.max(boost, 0.9);
+  if (msg.role === 'tool') boost = Math.max(boost, 0.6);
+  return boost;
+}
+
+export async function scoreMessage(msg: Message, index: number, total: number, taskGoal?: string): Promise<MessageScore> {
+  const recency = ebbinghausDecay(total - index);
+  const structural = structuralBoost(msg);
+  let relevance = 0.5;
+  if (taskGoal && msg.content) {
+    try {
+      relevance = await scoreMessageMilvus(msg.content, "", taskGoal);
+    } catch {
+      relevance = 0.5;
+    }
+  }
+  const total_score = relevance * 0.4 + recency * 0.3 + structural * 0.3;
+  return { relevance, recency, structural, total: total_score, protected: isProtected(msg, index, total) };
+}
+
+// ─── Milvus Scoring (internal) ────────────────────────────────────────────────
+
+async function scoreMessageMilvus(
   text: string,
-  milvusUrl: string,
+  _milvusUrl: string,
   sliceId?: string,
 ): Promise<number> {
   try {
     const embedding = await embedText(text);
-    if (!embedding) return 0.5; // milvus down → neutral score, don't kill context
+    if (!embedding) return 0.5;
 
-    let baseScore = await queryMilvusSimilarity(embedding, milvusUrl);
-    if (sliceId && opts.sliceAwareBoost) {
+    let baseScore = await queryMilvusSimilarity(embedding, DEFAULT_OPTIONS.milvusUrl);
+    if (sliceId && DEFAULT_OPTIONS.sliceAwareBoost) {
       const sliceEmbedding = await embedText(`slice:${sliceId}`);
       if (sliceEmbedding) {
-        const sliceScore = await queryMilvusSimilarity(sliceEmbedding, milvusUrl);
+        const sliceScore = await queryMilvusSimilarity(sliceEmbedding, DEFAULT_OPTIONS.milvusUrl);
         baseScore += Math.min(0.15, sliceScore * 0.15);
       }
     }
     return baseScore;
   } catch {
-    return 0.5; // milvus down → neutral score
+    return 0.5;
   }
 }
+
+// ─── Milvus Similarity ────────────────────────────────────────────────────────
 
 async function queryMilvusSimilarity(
   embedding: number[],
@@ -166,25 +349,7 @@ async function queryMilvusSimilarity(
   return 0.0;
 }
 
-// ─── Stats ────────────────────────────────────────────────────────────────────
-
-async function writeCompactionStats(
-  dbPath: string,
-  prunedCount: number,
-  contextSizeAfter: number,
-): Promise<void> {
-  try {
-    const { execSync } = await import("child_process");
-    execSync(
-      `mempalace write -- pruned=${prunedCount} --context-size=${contextSizeAfter}`,
-      { cwd: dbPath, stdio: "ignore" },
-    );
-  } catch {
-    // skip
-  }
-}
-
-// ─── Honcho ──────────────────────────────────────────────────────────────────
+// ─── Honcho Patterns (Composer) ──────────────────────────────────────────────
 
 async function fetchHonchoPatterns(
   milvusUrl: string,
@@ -220,11 +385,53 @@ async function fetchHonchoPatterns(
 
 // ─── Token Estimation ─────────────────────────────────────────────────────────
 
-/** Rough token estimate: ~4 chars per token for English, clamp 1-4096. */
 function estimateTokens(text: string): number {
   const len = text.length;
   if (len === 0) return 1;
   return Math.max(1, Math.min(4096, Math.ceil(len / 4)));
+}
+
+// ─── Token Budget Escalation Ladder ───────────────────────────────────────────
+
+interface AgentTokenBudget {
+  agent_type: string;
+  max_context_tokens: number;
+  compression_aggressiveness: number;
+  brain_injection_budget: number;
+}
+
+const DEFAULT_BUDGETS: Record<string, AgentTokenBudget> = {
+  coder: { max_context_tokens: 100_000, compression_aggressiveness: 0.8, brain_injection_budget: 500 },
+  researcher: { max_context_tokens: 128_000, compression_aggressiveness: 0.4, brain_injection_budget: 1000 },
+  reviewer: { max_context_tokens: 64_000, compression_aggressiveness: 0.6, brain_injection_budget: 500 },
+  orchestrator: { max_context_tokens: 128_000, compression_aggressiveness: 0.5, brain_injection_budget: 800 },
+};
+
+function escalateForBudget(
+  messages: Message[],
+  budget: AgentTokenBudget,
+): Message[] {
+  const currentTokens = messages.reduce((sum, m) => sum + estimateTokens(m.content), 0);
+  if (currentTokens <= budget.max_context_tokens) return messages;
+
+  // Step 1: Stronger compression on all non-protected messages
+  let result = messages.map((msg, i) => {
+    const age = messages.length - i;
+    if (age <= 5) return msg;
+    return { ...msg, content: compressMessage(msg.content, CompressionLevel.Ultra) };
+  });
+
+  if (result.reduce((sum, m) => sum + estimateTokens(m.content), 0) <= budget.max_context_tokens) {
+    return result;
+  }
+
+  // Step 2: Drop oldest unprotected messages
+  result = result.filter((msg, i) => {
+    if (isProtected(msg, i, result.length)) return true;
+    return true; // keep for now; further pruning handled by Pruner
+  });
+
+  return result;
 }
 
 // ─── Brain State Reader ────────────────────────────────────────────────────────
@@ -239,29 +446,15 @@ async function readBrainState(): Promise<BrainState | null> {
   }
 }
 
+function buildBrainLine(brainState: BrainState): string {
+  const icon = brainState.status === "Alive" ? "🧠" : brainState.status === "Stale" ? "💤" : "❓";
+  const age = brainState.last_data_at_ms === 0
+    ? "never"
+    : `${Math.round((Date.now() - brainState.last_data_at_ms) / 1000)}s ago`;
+  return `${icon} BRAIN ${brainState.status} | patterns:${brainState.patterns_total} findings:${brainState.findings_total} units:${brainState.units_processed} | last:${age}`;
+}
+
 // ─── Kompress Status Display ──────────────────────────────────────────────────────
-
-interface KompressStats {
-  model: string;
-  pruned: number;
-  kept: number;
-  total: number;
-  threshold: number;
-  density: number;
-  history: number[];
-  tokensPruned: number;
-  tokensKept: number;
-}
-
-interface BrainState {
-  status: string;
-  patterns_total: number;
-  findings_total: number;
-  units_processed: number;
-  last_data_at_ms: number;
-  poll_count: number;
-  interval_ms: number;
-}
 
 function buildKompressDisplay(stats: KompressStats): Message {
   const saved = stats.tokensPruned - stats.tokensKept;
@@ -288,9 +481,25 @@ function buildKompressDisplay(stats: KompressStats): Message {
   } as Message;
 }
 
-// ─── Plugin ───────────────────────────────────────────────────────────────────
+// ─── Stats ────────────────────────────────────────────────────────────────────
 
-const opts = { ...DEFAULT_OPTIONS };
+async function writeCompactionStats(
+  dbPath: string,
+  prunedCount: number,
+  contextSizeAfter: number,
+): Promise<void> {
+  try {
+    const { execSync } = await import("child_process");
+    execSync(
+      `mempalace write -- pruned=${prunedCount} --context-size=${contextSizeAfter}`,
+      { cwd: dbPath, stdio: "ignore" },
+    );
+  } catch {
+    // skip
+  }
+}
+
+// ─── Plugin ───────────────────────────────────────────────────────────────────
 
 const state = {
   lastCompactionAt: 0,
@@ -303,9 +512,10 @@ export default (
   _input: PluginInput,
   options?: KompressUltraOptions,
 ) => {
-  const { ...mergedOpts } = { ...DEFAULT_OPTIONS, ...options };
+  const mergedOpts = { ...DEFAULT_OPTIONS, ...options };
 
   return {
+    // ─── messages.transform: Pruner + Rewriter + Circulator ─────────────────
     "experimental.chat.messages.transform": async (
       input: unknown,
       _output: unknown,
@@ -319,65 +529,92 @@ export default (
         ? adaptiveThreshold(density, mergedOpts.relevanceThreshold)
         : mergedOpts.relevanceThreshold;
 
-      // Score + split
+      // PRUNER: Score all messages
       const scored = await Promise.all(
         messages.map((msg, idx) => ({
           msg,
           idx,
-          score: scoreMessage(msg.content, mergedOpts.milvusUrl, ctx.sliceId),
+          score: scoreMessage(msg, idx, messages.length, ctx.taskGoal),
         })),
       );
 
+      // PRUNER: Split by safety floors + threshold
       const kept: Message[] = [];
       const dropped: Message[] = [];
       for (const s of scored) {
-        // Always keep the last N messages (recency protection)
-        const isRecent = s.idx >= messages.length - 5;
-        if (s.score >= threshold || isRecent) kept.push(s.msg);
+        if (s.score.protected || s.score.total >= threshold) kept.push(s.msg);
         else dropped.push(s.msg);
       }
 
-      // Safety guard: never prune more than 50% of context
+      // Safety: 50% prune cap
       const maxPrune = Math.floor(messages.length * 0.5);
       if (dropped.length > maxPrune) {
-        // Restore the weakest kept messages until we're within limits
         const excess = dropped.length - maxPrune;
-        const restored = dropped.slice(0, excess);
-        kept.push(...restored);
+        kept.push(...dropped.slice(0, excess));
         dropped.splice(0, excess);
       }
 
       // Drop weakest until under cap
-      const final =
-        kept.length > mergedOpts.maxMessagesKept
-          ? kept
-              .sort((a, b) => {
-                const sa = scored.find((s) => s.msg === a)?.score ?? 0;
-                const sb = scored.find((s) => s.msg === b)?.score ?? 0;
-                return sa - sb;
-              })
-              .slice(-mergedOpts.maxMessagesKept)
-          : kept;
+      let final = kept;
+      if (kept.length > mergedOpts.maxMessagesKept) {
+        final = kept
+          .sort((a, b) => {
+            const sa = scored.find((s) => s.msg === a)?.score.total ?? 0;
+            const sb = scored.find((s) => s.msg === b)?.score.total ?? 0;
+            return sa - sb;
+          })
+          .slice(-mergedOpts.maxMessagesKept);
+      }
 
-      // Safety: never produce empty context
+      // Safety: empty context guard
       if (final.length === 0) return;
 
-      const prunedCount = messages.length - final.length;
+      // REWRITER: Compress by age (TokenPilot: only tail, never prefix)
+      const rewritten = final.map((msg, i) => {
+        const age = final.length - i;
+        if (age <= 5) return msg; // Verbatim (KV cache prefix)
+        if (age <= 15) return { ...msg, content: compressMessage(msg.content, CompressionLevel.Lite) };
+        return { ...msg, content: compressMessage(msg.content, CompressionLevel.Ultra) };
+      });
+
+      // Token budget escalation
+      const agentType = (ctx as Record<string, unknown>).agent_type as string || "orchestrator";
+      const budget = DEFAULT_BUDGETS[agentType] || DEFAULT_BUDGETS.orchestrator;
+      const budgeted = escalateForBudget(rewritten, budget);
+
+      // CIRCULATOR: enqueue pruned messages (async, non-blocking)
+      const prunedCount = messages.length - budgeted.length;
       if (prunedCount > 0) {
-        // Update history
+        for (const msg of dropped) {
+          const contentHash = crypto?.getRandomValues?.(new Uint8Array(8))
+            ? Array.from(crypto.getRandomValues(new Uint8Array(8))).map(b => b.toString(16).padStart(2, "0")).join("").slice(0, 16)
+            : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+          enqueueCirculator({
+            session_id: (ctx as Record<string, unknown>).session_id as string || "unknown",
+            agent_type,
+            message_role: msg.role,
+            content_hash: contentHash,
+            classification: classifyMessage(msg.content),
+            residual: msg.content,
+            timestamp_ms: Date.now(),
+          });
+        }
+      }
+
+      // Update context
+      if (prunedCount > 0) {
         state.contextSizeHistory.push(messages.length);
         if (state.contextSizeHistory.length > 10) {
           state.contextSizeHistory = state.contextSizeHistory.slice(-10);
         }
 
-        // Build kompress display block
         const model = (ctx as Record<string, unknown>).model as string || "unknown";
         const tokensPruned = dropped.reduce((sum, m) => sum + estimateTokens(m.content), 0);
-        const tokensKept = final.reduce((sum, m) => sum + estimateTokens(m.content), 0);
+        const tokensKept = budgeted.reduce((sum, m) => sum + estimateTokens(m.content), 0);
         const kompressStats: KompressStats = {
           model,
           pruned: prunedCount,
-          kept: final.length,
+          kept: budgeted.length,
           total: messages.length,
           threshold,
           density,
@@ -390,18 +627,15 @@ export default (
         // Append brain liveness to kompress display
         const brainState = await readBrainState();
         if (brainState) {
-          const icon = brainState.status === "Alive" ? "🧠" : brainState.status === "Stale" ? "💤" : "❓";
-          const age = brainState.last_data_at_ms === 0 ? "never" : `${Math.round((Date.now() - brainState.last_data_at_ms) / 1000)}s ago`;
-          kompressDisplay.content += `\n${icon} BRAIN ${brainState.status} | patterns:${brainState.patterns_total} findings:${brainState.findings_total} units:${brainState.units_processed} | last:${age}`;
+          kompressDisplay.content += `\n${buildBrainLine(brainState)}`;
         }
 
-        // Inject display message + update context
-        (ctx as { messages: Message[] }).messages = [kompressDisplay, ...final];
+        (ctx as { messages: Message[] }).messages = [kompressDisplay, ...budgeted];
 
         await writeCompactionStats(
           mergedOpts.mempalaceDb,
           prunedCount,
-          final.length,
+          budgeted.length,
         );
 
         if (mergedOpts.droppedMessageDigest && dropped.length > 0) {
@@ -410,20 +644,43 @@ export default (
       }
     },
 
+    // ─── system.transform: Composer ─────────────────────────────────────────
     "experimental.chat.system.transform": async (
       input: unknown,
       _output: unknown,
     ) => {
       const ctx = input as SystemContext;
+
+      // ⚠️ DCP conflict guard — double-compression kills context quality
+      const sp = ctx.systemPrompt ?? "";
+      if (sp.includes("DCP") || sp.includes("dcp-") || sp.includes("opencode-dcp")) {
+        ctx.systemPrompt = sp + "\n\n⚠️ WARNING: DCP plugin detected. DCP and kompress must NOT run together. Double-compression will degrade context quality. Disable DCP or kompress.";
+        return;
+      }
+
       const now = Date.now();
 
+      // Circuit breaker check
+      if (isCircuitOpen()) {
+        const staleLine = "❓ BRAIN STALE (circuit breaker open)";
+        ctx.systemPrompt = (ctx.systemPrompt ?? "") + "\n\n" + staleLine;
+        return;
+      }
+
+      // Fetch patterns (cached by poll interval)
       if (now - state.lastPatternFetch > mergedOpts.pollIntervalMs) {
         const topic =
           ctx.taskGoal ?? ctx.messages?.[0]?.content?.slice(0, 100) ?? "general";
-        state.cachedPatterns = await fetchHonchoPatterns(
-          mergedOpts.milvusUrl,
-          topic,
-        );
+        try {
+          state.cachedPatterns = await fetchHonchoPatterns(
+            mergedOpts.milvusUrl,
+            topic,
+          );
+          recordSuccess();
+        } catch {
+          recordFailure();
+          state.cachedPatterns = [];
+        }
         state.lastPatternFetch = now;
       }
 
@@ -432,13 +689,11 @@ export default (
         ? adaptiveThreshold(density, mergedOpts.relevanceThreshold)
         : mergedOpts.relevanceThreshold;
 
-      // Always-on brain liveness — compact, high signal
+      // Brain state line (50-token budget)
       const brainState = await readBrainState();
       let brainLine = "";
       if (brainState) {
-        const icon = brainState.status === "Alive" ? "🧠" : brainState.status === "Stale" ? "💤" : "❓";
-        const age = brainState.last_data_at_ms === 0 ? "never" : `${Math.round((Date.now() - brainState.last_data_at_ms) / 1000)}s ago`;
-        brainLine = `\n${icon} BRAIN ${brainState.status} | patterns:${brainState.patterns_total} findings:${brainState.findings_total} units:${brainState.units_processed} | last:${age}`;
+        brainLine = buildBrainLine(brainState);
       }
 
       const kompressBlock = [
