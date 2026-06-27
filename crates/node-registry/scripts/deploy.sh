@@ -1,19 +1,25 @@
 #!/bin/bash
-# Deploy node-registry to nuremberg-hq
+# Deploy node-registry to target server
 
 set -e
 
-echo "Building node-registry..."
-cargo build --manifest-path crates/node-registry/Cargo.toml
+# Get script directory and project root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-echo "Copying binary to nuremberg-hq..."
-scp crates/node-registry/target/debug/node-registry root@nuremberg-hq:/opt/node-registry/node-registry
+cd "$PROJECT_ROOT"
+
+echo "Building node-registry (release)..."
+cargo build --manifest-path crates/node-registry/Cargo.toml --release
+
+echo "Copying binary to fsn1-de-01..."
+scp crates/node-registry/target/release/node-registry root@fsn1-de-01:/opt/node-registry/node-registry
 
 echo "Copying systemd service..."
-scp crates/node-registry/systemd/node-registry.service root@nuremberg-hq:/etc/systemd/system/
+scp crates/node-registry/systemd/node-registry.service root@fsn1-de-01:/etc/systemd/system/
 
 echo "Restarting service..."
-ssh root@nuremberg-hq "systemctl daemon-reload && systemctl enable node-registry && systemctl restart node-registry"
+ssh root@fsn1-de-01 "systemctl daemon-reload && systemctl enable node-registry && systemctl restart node-registry"
 
 echo "Deployment complete!"
-echo "Verify: ssh root@nuremberg-hq 'systemctl status node-registry'"
+echo "Verify: ssh root@fsn1-de-01 'systemctl status node-registry'"

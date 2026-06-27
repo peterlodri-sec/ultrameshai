@@ -7,12 +7,13 @@ use axum::{
 };
 use bytes::Bytes;
 use std::sync::Arc;
+use tokio::sync::Mutex;
 use crate::types::{HeartbeatRequest, HealthResponse, NodeEntry, NodeMetadata};
 use crate::registry::NodeRegistry;
 use crate::crypto::{verify_signature, extract_signature};
 
-/// Application state
-pub type AppState = Arc<NodeRegistry>;
+/// Application state - Arc<Mutex> for thread-safe access
+pub type AppState = Arc<Mutex<NodeRegistry>>;
 
 /// POST /heartbeat - Register/update node
 pub async fn heartbeat_handler(
@@ -53,7 +54,7 @@ pub async fn heartbeat_handler(
     });
     
     // Register
-    registry.register_node(entry).await;
+    registry.lock().await.register_node(entry);
     
     StatusCode::OK
 }
@@ -62,7 +63,7 @@ pub async fn heartbeat_handler(
 pub async fn list_nodes_handler(
     State(registry): State<AppState>,
 ) -> Json<Vec<NodeEntry>> {
-    let nodes = registry.get_all_nodes().await;
+    let nodes = registry.lock().await.get_all_nodes();
     Json(nodes)
 }
 
@@ -70,13 +71,13 @@ pub async fn list_nodes_handler(
 pub async fn health_handler(
     State(registry): State<AppState>,
 ) -> Json<HealthResponse> {
-    let (total, online, offline) = registry.get_node_counts().await;
+    let (total, online, offline) = registry.lock().await.get_node_counts();
     Json(HealthResponse {
         status: "healthy".into(),
         total_nodes: total,
         online_nodes: online,
         offline_nodes: offline,
-        uptime_secs: registry.uptime_secs(),
+        uptime_secs: registry.lock().await.uptime_secs(),
     })
 }
 

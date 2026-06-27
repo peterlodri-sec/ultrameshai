@@ -22,7 +22,19 @@ def brain-line [state] {
     if $state != null {
         let icon = if $state.status == "Alive" { "🧠" } else if $state.status == "Stale" { "💤" } else { "❓" }
         let age = if ($state.last_data_at_ms == 0) { "never" } else { $"($state.last_data_at_ms)s ago" }
-        print $"  $icon BRAIN ($state.status) | patterns: ($state.patterns_total) findings: ($state.findings_total) units: ($state.units_processed) last: ($age)"
+        let banner = [
+            "┌─────────────────────────────────────────────────────────────────────────────┐",
+            "│  🧠 BRAIN STATUS  │",
+            "│    ▲   │",
+            "│   / \\  │",
+            "│  /___\\ │",
+            "│  Patterns: ($state.patterns_total)  │",
+            "│  Findings: ($state.findings_total)  │",
+            "│  Units: ($state.units_processed)  │",
+            "│  Last: ($age)  │",
+            "└─────────────────────────────────────────────────────────────────────────────┘"
+        ] | str join "\n"
+        print $banner
     } else {
         print "  ❓ BRAIN (no state file — honcho daemon may not be running)"
     }

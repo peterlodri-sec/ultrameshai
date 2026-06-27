@@ -1,11 +1,12 @@
 use std::sync::Arc;
+use tokio::sync::Mutex;
 use tokio::time::{interval, Duration};
 use crate::registry::NodeRegistry;
 use crate::discovery::TailscaleDiscovery;
 
 /// Spawn background tasks for stale node detection
 pub fn spawn_background_tasks(
-    registry: Arc<NodeRegistry>,
+    registry: Arc<Mutex<NodeRegistry>>,
     discovery: Arc<TailscaleDiscovery>,
     poll_interval_secs: u64,
 ) {
@@ -16,7 +17,10 @@ pub fn spawn_background_tasks(
             int.tick().await;
             
             // Check stale nodes
-            let stale_ids = registry.check_stale_nodes().await;
+            let stale_ids = {
+                let reg = registry.lock().await;
+                reg.check_stale_nodes()
+            };
             
             if !stale_ids.is_empty() {
                 tracing::info!("Found {} stale nodes: {:?}", stale_ids.len(), stale_ids);
@@ -27,7 +31,7 @@ pub fn spawn_background_tasks(
                         // Mark nodes offline if not in Tailscale online set
                         for node_id in &stale_ids {
                             if !online_ids.contains(node_id) {
-                                registry.mark_offline(node_id).await;
+                                registry.lock().await.mark_offline(node_id);
                                 tracing::info!("Marked node {} as offline", node_id);
                             }
                         }

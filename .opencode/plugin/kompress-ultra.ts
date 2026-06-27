@@ -377,7 +377,7 @@ export default (
         if (brainState) {
           const icon = brainState.status === "Alive" ? "🧠" : brainState.status === "Stale" ? "💤" : "❓";
           const age = brainState.last_data_at_ms === 0 ? "never" : `${Math.round((Date.now() - brainState.last_data_at_ms) / 1000)}s ago`;
-          dcpDisplay.content += `\n\n${icon} BRAIN ${brainState.status} | patterns:${brainState.patterns_total} findings:${brainState.findings_total} units:${brainState.units_processed} last:${age}`;
+          dcpDisplay.content += `\n\n${icon} BRAIN ${brainState.status}\n    ▲\n   / \\\n  /___\\\n  patterns:${brainState.patterns_total} findings:${brainState.findings_total} units:${brainState.units_processed} last:${age}`;
         }
 
         // Inject display message + update context
@@ -437,7 +437,7 @@ export default (
       if (brainState) {
         const icon = brainState.status === "Alive" ? "🧠" : brainState.status === "Stale" ? "💤" : "❓";
         const age = brainState.last_data_at_ms === 0 ? "never" : `${Math.round((Date.now() - brainState.last_data_at_ms) / 1000)}s ago`;
-        dcpBlock.push("", `${icon} BRAIN ${brainState.status} | patterns:${brainState.patterns_total} findings:${brainState.findings_total} units:${brainState.units_processed} last:${age}`);
+        dcpBlock.push("", `${icon} BRAIN ${brainState.status}\n    ▲\n   / \\\n  /___\\\n  patterns:${brainState.patterns_total} findings:${brainState.findings_total} units:${brainState.units_processed} last:${age}`);
       }
 
       ctx.systemPrompt = (ctx.systemPrompt ?? "") + "\n\n" + dcpBlock.join("\n");

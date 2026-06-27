@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use tokio::sync::Mutex;
 use loop_engineering_node_registry::{NodeRegistry, TailscaleDiscovery, create_router, spawn_background_tasks};
 
 #[tokio::main]
@@ -13,13 +14,9 @@ async fn main() {
         .unwrap_or_else(|_| "60".into())
         .parse::<u64>()
         .unwrap_or(60);
-    let stale_threshold = std::env::var("STALE_THRESHOLD_SECS")
-        .unwrap_or_else(|_| "90".into())
-        .parse::<u64>()
-        .unwrap_or(90);
     
-    // Create registry and discovery
-    let registry = Arc::new(NodeRegistry::new(stale_threshold, 3));
+    // Create registry wrapped in Arc<Mutex> for thread-safe access
+    let registry = Arc::new(Mutex::new(NodeRegistry::new()));
     let discovery = Arc::new(TailscaleDiscovery::new(tailnet));
     
     // Spawn background tasks
