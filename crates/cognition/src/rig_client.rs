@@ -1,12 +1,16 @@
+#[cfg(feature = "rig")]
 use crate::error::{CognitionError, Result};
+#[cfg(feature = "rig")]
 use serde::Serialize;
 
 /// RigClient wrapper for structured extraction
+#[cfg(feature = "rig")]
 pub struct RigClient {
     // Placeholder - actual implementation will be added later
     _phantom: (),
 }
 
+#[cfg(feature = "rig")]
 impl RigClient {
     /// Create new RigClient from environment variables
     pub fn from_env() -> Result<Self> {
