@@ -103,7 +103,54 @@ Kompress is a context management layer, not a storage layer. It reads/writes mil
 
 **Round-trip test:** After compression, verify markdown structure is intact (fences balanced, links valid).
 
-### 2.4 Co-Processor Model (Inline Synthesis)
+### 2.5 Repo-Anchored Memory (`.kompress/` Shadow Directory)
+
+**Role:** Cross-session, cross-agent persistence anchored to the repository. Memory lives as versioned artifacts, not just milvus vectors.
+
+**Directory structure:**
+```
+.kompress/
+├── ROADMAP.md          # High-level project state, goals, architectural rules
+├── HANDOVER.md         # Active session baton (last state, blockers, targets)
+└── files/              # Per-file shadow context cache
+    ├── src/
+    │   └── main.rs.json  # Intent, known issues, graph triples for src/main.rs
+    └── Cargo.toml.json
+```
+
+**File sidecar schema** (`.kompress/files/<path>.json`):
+```json
+{
+  "file_path": "src/main.rs",
+  "last_mutated_commit": "a1b2c3d",
+  "architectural_intent": "Entry point for orchestration daemon",
+  "known_quirks": ["Tokio runtime panics inside signaling thread"],
+  "dependencies": ["crates/honcho", "proto/loop_engineering.proto"],
+  "triples": [{"s": "main.rs", "p": "instantiates", "o": "HonchoDaemon"}]
+}
+```
+
+**Dynamic invalidation:**
+1. Before injecting file sidecar, hash source file
+2. If `last_mutated_commit` doesn't match current HEAD → sidecar is stale
+3. Co-processor scans git diff → updates sidecar inline → commits new hash
+4. If diff is empty → use sidecar directly (hot path, no LLM call)
+
+**Handover protocol** (`.kompress/HANDOVER.md`):
+- Generated when agent ends loop (test failure, budget exhausted, milestone)
+- Contains: source agent, target agent, status, intent summary, last error, critical files, next steps
+- Incoming agent reads HANDOVER.md + ROADMAP.md + relevant file sidecars before first turn
+
+**Shadow git:**
+- `.kompress/` tracked on dedicated shadow branch (`.kompress-main`)
+- Parallel agents checkout separate workspaces: `.kompress/branches/<agent_id>/`
+- Background defrag: cron/daemon merges agent summaries → resolves conflicts → flushes to ROADMAP.md + milvus
+
+**Why this works:**
+- 100% human-readable — engineer can inspect `.kompress/` directly
+- Zero remote dependency — memory lives in the repo
+- Instant handovers — no warm-up, no milvus query needed for file context
+- Cross-framework compatible — any agent (Claude Code, OpenCode, Cursor) can read `.kompress/`
 
 **Role:** Fused context co-processor. Lives in same process as agent. No HTTP, no RPC — native FFI to llama.cpp.
 
@@ -344,10 +391,11 @@ Escalation ladder:
 
 | File | Change |
 |------|--------|
-| `.opencode/plugin/kompress-ultra.ts` | Full rewrite: 4-role architecture, safety floors, circulator |
-| `crates/honcho/src/daemon.rs` | No changes (BrainSnapshot already exists) |
+| `.opencode/plugin/kompress-ultra.ts` | Full rewrite: 4-role architecture, safety floors, circulator, co-processor FFI |
+| `.kompress/` | New shadow directory: ROADMAP.md, HANDOVER.md, files/ sidecars |
+| `crates/honcho/src/daemon.rs` | Background defrag: merge `.kompress/` branches → ROADMAP.md + milvus |
 | `crates/milvus-brain/` | New circulator writer module |
-| `proto/loop_engineering.proto` | New PrunedContextEntry message type |
+| `proto/loop_engineering.proto` | New PrunedContextEntry, FileContextSidecar, HandoverBrief messages |
 
 ---
 
