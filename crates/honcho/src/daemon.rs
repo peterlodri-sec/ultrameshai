@@ -4,11 +4,105 @@ use crate::error::{HonchoError, Result};
 use crate::store::PatternStore;
 use mempalace::{MempalaceClient, UnitStats};
 use milvus_brain::ResearchFinding;
-use std::sync::atomic::{AtomicBool, Ordering};
+use serde::Serialize;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::RwLock;
 use tokio::time::{interval, MissedTickBehavior};
+
+/// Brain health status
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+pub enum BrainStatus {
+    Alive,   // data received within 2x poll interval
+    Stale,   // no data within 2x poll interval
+    Unknown, // never received data
+}
+
+impl std::fmt::Display for BrainStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BrainStatus::Alive => write!(f, "ALIVE"),
+            BrainStatus::Stale => write!(f, "STALE"),
+            BrainStatus::Unknown => write!(f, "UNKNOWN"),
+        }
+    }
+}
+
+/// Lock-free brain state snapshot written once per poll cycle
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct BrainSnapshot {
+    pub status: BrainStatus,
+    pub patterns_total: u64,
+    pub findings_total: u64,
+    pub units_processed: u64,
+    pub last_data_at_ms: u64,
+    pub poll_count: u64,
+    pub interval_ms: u64,
+}
+
+impl BrainSnapshot {
+    /// Compute status from raw fields
+    pub fn compute(
+        patterns_total: u64,
+        findings_total: u64,
+        units_processed: u64,
+        last_data_at_ms: u64,
+        poll_count: u64,
+        interval_ms: u64,
+    ) -> Self {
+        let status = if poll_count == 0 {
+            BrainStatus::Unknown
+        } else if last_data_at_ms == 0 {
+            BrainStatus::Unknown
+        } else {
+            let now = Self::now_ms();
+            let elapsed = now.saturating_sub(last_data_at_ms);
+            let threshold = interval_ms * 2;
+            if elapsed <= threshold {
+                BrainStatus::Alive
+            } else {
+                BrainStatus::Stale
+            }
+        };
+        Self { status, patterns_total, findings_total, units_processed, last_data_at_ms, poll_count, interval_ms }
+    }
+
+    fn now_ms() -> u64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH).unwrap()
+            .as_millis() as u64
+    }
+
+    pub fn age_string(&self) -> String {
+        if self.last_data_at_ms == 0 {
+            "never".to_string()
+        } else {
+            let elapsed = Self::now_ms().saturating_sub(self.last_data_at_ms);
+            let secs = elapsed / 1000;
+            if secs < 60 { format!("{}s ago", secs) } else { format!("{}m ago", secs / 60) }
+        }
+    }
+
+    pub fn format_banner(&self) -> String {
+        let status_icon = match self.status {
+            BrainStatus::Alive => "🧠",
+            BrainStatus::Stale => "💤",
+            BrainStatus::Unknown => "❓",
+        };
+        let age = self.age_string();
+        format!(
+            r#"
+╔══════════════════════════════════════════════════════════╗
+║  {}  BRAIN  {}                                      ║
+║  patterns: {:>5}   findings: {:>5}   units: {:>6}        ║
+║  last data: {:>12}   poll #{:>4}   interval: {}m       ║
+╚══════════════════════════════════════════════════════════╝"#,
+            status_icon, self.status, self.patterns_total, self.findings_total,
+            self.units_processed, age, self.poll_count, self.interval_ms / 60000,
+        )
+    }
+}
 
 /// HonchoDaemon - background daemon that polls mempalace + milvus for patterns
 pub struct HonchoDaemon {
@@ -19,6 +113,30 @@ pub struct HonchoDaemon {
     last_processed_mempalace: Arc<RwLock<u64>>,
     last_processed_milvus: Arc<RwLock<u64>>,
     running: Arc<AtomicBool>,
+    patterns_total: Arc<AtomicU64>,
+    findings_total: Arc<AtomicU64>,
+    units_processed: Arc<AtomicU64>,
+    last_data_at_ms: Arc<AtomicU64>,
+    poll_count: Arc<AtomicU64>,
+}
+
+impl Clone for HonchoDaemon {
+    fn clone(&self) -> Self {
+        Self {
+            mempalace_db: self.mempalace_db.clone(),
+            pattern_store: None,
+            detector: self.detector.clone(),
+            poll_interval_ms: self.poll_interval_ms,
+            last_processed_mempalace: self.last_processed_mempalace.clone(),
+            last_processed_milvus: self.last_processed_milvus.clone(),
+            running: self.running.clone(),
+            patterns_total: self.patterns_total.clone(),
+            findings_total: self.findings_total.clone(),
+            units_processed: self.units_processed.clone(),
+            last_data_at_ms: self.last_data_at_ms.clone(),
+            poll_count: self.poll_count.clone(),
+        }
+    }
 }
 
 impl HonchoDaemon {
@@ -50,6 +168,11 @@ impl HonchoDaemon {
             last_processed_mempalace: Arc::new(RwLock::new(0)),
             last_processed_milvus: Arc::new(RwLock::new(0)),
             running: Arc::new(AtomicBool::new(false)),
+            patterns_total: Arc::new(AtomicU64::new(0)),
+            findings_total: Arc::new(AtomicU64::new(0)),
+            units_processed: Arc::new(AtomicU64::new(0)),
+            last_data_at_ms: Arc::new(AtomicU64::new(0)),
+            poll_count: Arc::new(AtomicU64::new(0)),
         })
     }
 
@@ -63,54 +186,16 @@ impl HonchoDaemon {
 
         self.running.store(true, Ordering::SeqCst);
 
-        let mempalace_db = self.mempalace_db.clone();
-        let last_mempalace = self.last_processed_mempalace.clone();
-        let last_milvus = self.last_processed_milvus.clone();
-        let running = self.running.clone();
+        let this = self.clone();
         let poll_interval = self.poll_interval_ms;
-        let detector = self.detector.clone();
-        let has_milvus = self.pattern_store.is_some();
 
         tokio::spawn(async move {
             let mut interval_timer = interval(Duration::from_millis(poll_interval));
             interval_timer.set_missed_tick_behavior(MissedTickBehavior::Skip);
 
-            while running.load(Ordering::SeqCst) {
+            while this.running.load(Ordering::SeqCst) {
                 interval_timer.tick().await;
-
-                // Poll mempalace for new unit stats
-                let stats = match Self::poll_mempalace(&mempalace_db, &last_mempalace).await {
-                    Ok(s) => s,
-                    Err(e) => {
-                        tracing::error!("Failed to poll mempalace: {}", e);
-                        continue;
-                    }
-                };
-
-                // Poll milvus for new findings (if connected)
-                let findings = if has_milvus {
-                    match Self::poll_milvus(&last_milvus).await {
-                        Ok(f) => f,
-                        Err(e) => {
-                            tracing::warn!("Failed to poll milvus: {}", e);
-                            vec![]
-                        }
-                    }
-                } else {
-                    vec![]
-                };
-
-                // Process batch and detect patterns
-                if !stats.is_empty() || !findings.is_empty() {
-                    match Self::process_batch(&detector, has_milvus, &mempalace_db, stats, findings).await {
-                        Ok(count) => {
-                            tracing::info!("Detected {} new patterns", count);
-                        }
-                        Err(e) => {
-                            tracing::error!("Failed to process batch: {}", e);
-                        }
-                    }
-                }
+                this.tick().await;
             }
 
             tracing::info!("Honcho daemon stopped");
@@ -127,6 +212,81 @@ impl HonchoDaemon {
     /// Check if daemon is running
     pub fn is_running(&self) -> bool {
         self.running.load(Ordering::SeqCst)
+    }
+
+    fn now_ms() -> u64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH).unwrap()
+            .as_millis() as u64
+    }
+
+    /// Take a snapshot of current brain state (lock-free read of atomics)
+    pub fn snapshot(&self) -> BrainSnapshot {
+        let last = self.last_data_at_ms.load(Ordering::Relaxed);
+        let pc = self.poll_count.load(Ordering::Relaxed);
+        BrainSnapshot::compute(
+            self.patterns_total.load(Ordering::Relaxed),
+            self.findings_total.load(Ordering::Relaxed),
+            self.units_processed.load(Ordering::Relaxed),
+            last, pc, self.poll_interval_ms,
+        )
+    }
+
+    /// Write snapshot JSON to brain-state.json in cache dir
+    pub async fn write_state_file(&self, snap: &BrainSnapshot) -> std::io::Result<()> {
+        let path = dirs::cache_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("."))
+            .join("ultrameshai")
+            .join("brain-state.json");
+        tokio::fs::create_dir_all(path.parent().unwrap()).await?;
+        let json = serde_json::to_string_pretty(snap).unwrap();
+        tokio::fs::write(path, json).await
+    }
+
+    /// Execute one poll cycle: mempalace + milvus, update counters, emit banner
+    async fn tick(&self) {
+        let mempalace_db = self.mempalace_db.clone();
+        let last_mempalace = self.last_processed_mempalace.clone();
+        let last_milvus = self.last_processed_milvus.clone();
+        let has_milvus = self.pattern_store.is_some();
+
+        let stats = match Self::poll_mempalace(&mempalace_db, &last_mempalace).await {
+            Ok(s) => s,
+            Err(e) => {
+                tracing::error!("Failed to poll mempalace: {}", e);
+                return;
+            }
+        };
+
+        let findings = if has_milvus {
+            match Self::poll_milvus(&last_milvus).await {
+                Ok(f) => f,
+                Err(e) => {
+                    tracing::warn!("Failed to poll milvus: {}", e);
+                    vec![]
+                }
+            }
+        } else {
+            vec![]
+        };
+
+        if !stats.is_empty() || !findings.is_empty() {
+            match Self::process_batch(&self.detector, has_milvus, &mempalace_db, stats.clone(), findings).await {
+                Ok(count) => tracing::info!("Detected {} new patterns", count),
+                Err(e) => tracing::error!("Failed to process batch: {}", e),
+            }
+        }
+
+        let now = Self::now_ms();
+        self.last_data_at_ms.store(now, Ordering::Relaxed);
+        self.units_processed.fetch_add(stats.len() as u64, Ordering::Relaxed);
+        self.poll_count.fetch_add(1, Ordering::Relaxed);
+
+        let snap = self.snapshot();
+        tracing::info!(banner = "brain", "{}", snap.format_banner());
+        if let Err(e) = self.write_state_file(&snap).await {
+            tracing::warn!("Failed to write brain-state.json: {}", e);
+        }
     }
 
     /// Poll mempalace for new UnitStats since last processed timestamp
