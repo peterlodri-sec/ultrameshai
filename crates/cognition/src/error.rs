@@ -25,6 +25,15 @@ pub enum CognitionError {
     
     #[error("Provider error: {0}")]
     Provider(String),
+    
+    #[error("Rig error: {0}")]
+    Rig(String),
+    
+    #[error("LiteLLM error: {0}")]
+    LiteLLM(String),
+    
+    #[error("Schema validation error: {0}")]
+    SchemaValidation(String),
 }
 
 pub type Result<T> = std::result::Result<T, CognitionError>;
