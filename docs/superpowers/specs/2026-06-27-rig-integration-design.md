@@ -87,7 +87,8 @@ impl RigClient {
             .map_err(|e| CognitionError::Provider(e.to_string()))?;
         Ok(Self {
             client,
-            default_model: "gpt-3.5-turbo".into(),
+            default_model: std::env::var("OVHCLOUD_AI_MODEL")
+                .unwrap_or_else(|_| "Meta-Llama-3_3-70B-Instruct".into()),
         })
     }
 
@@ -347,9 +348,30 @@ async fn test_yardmaster_decompose_rig() {
 
 ---
 
-## 9. Open Questions
+## 9. Model Configuration
 
-- Which OpenAI models support Rig's JsonSchema extraction? (GPT-3.5-turbo, GPT-4?)
+### OVHcloud AI Endpoints
+
+Default model: `Meta-Llama-3_3-70B-Instruct` (70B parameters, instruction-tuned)
+
+```bash
+# Environment variables for Rig + OVHcloud
+OVHCLOUD_AI_API_KEY=<your-api-key>
+OVHCLOUD_AI_BASE_URL=https://ai-endpoints.api.ovh.com/v1
+OVHCLOUD_AI_MODEL=Meta-Llama-3_3-70B-Instruct
+```
+
+### Alternative Models
+
+| Model | Params | Use Case |
+|-------|--------|----------|
+| `Meta-Llama-3_3-70B-Instruct` | 70B | Default — general reasoning, structured extraction |
+| `Mistral-Small-3.2-24B-Instruct-2506` | 24B | Faster, lower cost — classification tasks |
+| `DeepSeek-R1-Distill-Llama-70B` | 70B distilled | Complex reasoning, multi-step decomposition |
+| `Mistral-Nemo-Instruct-2407` | 12B | Lightweight tasks, fast iteration |
+
+### Open Questions
+
 - Should Rig support multiple providers (Anthropic, Ollama, OVHcloud)?
 - Performance comparison: Rig vs raw LLM client (latency, token usage)?
 - Cost implications: Rig may use more tokens for structured output
@@ -386,6 +408,7 @@ struct TaskClassification {
 
 #[tokio::main]
 async fn main() {
+    // Requires: OVHCLOUD_AI_API_KEY, OVHCLOUD_AI_BASE_URL, OVHCLOUD_AI_MODEL
     let client = RigClient::from_env().unwrap();
     let classifier = client.extractor::<TaskClassification>(
         "Classify this task into appropriate loop type."

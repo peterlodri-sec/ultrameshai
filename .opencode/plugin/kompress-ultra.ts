@@ -1,4 +1,4 @@
-// kompress-ultra: DCP plugin for ultrameshai
+// kompress-ultra: experimental context pruning plugin for ultrameshai
 // /caveman ultra inside — drop articles/filler/hedging, abbreviate prose words,
 // code symbols/API names/errors exact, pattern: [thing] [action] [reason].
 // resume normal: security warnings, irreversible actions, stop caveman / normal mode.
@@ -14,7 +14,7 @@ export interface KompressUltraOptions {
   adaptiveThreshold?: boolean;
   droppedMessageDigest?: boolean;
   sliceAwareBoost?: boolean;
-  /** Show DCP status block after each prune */
+  /** Show kompress status block after each prune */
   displayPruneStatus?: boolean;
 }
 
@@ -239,9 +239,9 @@ async function readBrainState(): Promise<BrainState | null> {
   }
 }
 
-// ─── DCP Status Display ───────────────────────────────────────────────────────
+// ─── Kompress Status Display ──────────────────────────────────────────────────────
 
-interface DcpStats {
+interface KompressStats {
   model: string;
   pruned: number;
   kept: number;
@@ -263,10 +263,10 @@ interface BrainState {
   interval_ms: number;
 }
 
-function buildDcpDisplay(stats: DcpStats): Message {
+function buildKompressDisplay(stats: KompressStats): Message {
   const saved = stats.tokensPruned - stats.tokensKept;
   const lines = [
-    `── DCP ${stats.model} ──`,
+    `── kompress ${stats.model} ──`,
     `  pruned  ${stats.pruned} msg  ${stats.tokensPruned.toLocaleString()} tok  (threshold=${stats.threshold.toFixed(2)}, density=${stats.density.toFixed(2)})`,
     `  kept    ${stats.kept} msg  ${stats.tokensKept.toLocaleString()} tok`,
     `  saved   ${saved > 0 ? "+" : ""}${saved.toLocaleString()} tok`,
@@ -283,8 +283,8 @@ function buildDcpDisplay(stats: DcpStats): Message {
   return {
     role: "system",
     content: lines.join("\n"),
-    _dcp: true,
-    _dcpPruneEvent: true,
+    _kompress: true,
+    _kompressPruneEvent: true,
   } as Message;
 }
 
@@ -370,11 +370,11 @@ export default (
           state.contextSizeHistory = state.contextSizeHistory.slice(-10);
         }
 
-        // Build DCP display block
+        // Build kompress display block
         const model = (ctx as Record<string, unknown>).model as string || "unknown";
         const tokensPruned = dropped.reduce((sum, m) => sum + estimateTokens(m.content), 0);
         const tokensKept = final.reduce((sum, m) => sum + estimateTokens(m.content), 0);
-        const dcpStats: DcpStats = {
+        const kompressStats: KompressStats = {
           model,
           pruned: prunedCount,
           kept: final.length,
@@ -385,18 +385,18 @@ export default (
           tokensPruned,
           tokensKept,
         };
-        const dcpDisplay = buildDcpDisplay(dcpStats);
+        const kompressDisplay = buildKompressDisplay(kompressStats);
 
-        // Append brain liveness to DCP display
+        // Append brain liveness to kompress display
         const brainState = await readBrainState();
         if (brainState) {
           const icon = brainState.status === "Alive" ? "🧠" : brainState.status === "Stale" ? "💤" : "❓";
           const age = brainState.last_data_at_ms === 0 ? "never" : `${Math.round((Date.now() - brainState.last_data_at_ms) / 1000)}s ago`;
-          dcpDisplay.content += `\n\n${icon} BRAIN ${brainState.status}\n    ▲\n   / \\\n  /___\\\n  patterns:${brainState.patterns_total} findings:${brainState.findings_total} units:${brainState.units_processed} last:${age}`;
+          kompressDisplay.content += `\n${icon} BRAIN ${brainState.status} | patterns:${brainState.patterns_total} findings:${brainState.findings_total} units:${brainState.units_processed} | last:${age}`;
         }
 
         // Inject display message + update context
-        (ctx as { messages: Message[] }).messages = [dcpDisplay, ...final];
+        (ctx as { messages: Message[] }).messages = [kompressDisplay, ...final];
 
         await writeCompactionStats(
           mergedOpts.mempalaceDb,
@@ -432,30 +432,26 @@ export default (
         ? adaptiveThreshold(density, mergedOpts.relevanceThreshold)
         : mergedOpts.relevanceThreshold;
 
-      const dcpBlock = [
-        "## DCP auto-pruning",
-        `- threshold ${activeThreshold.toFixed(2)} (density ${density.toFixed(2)})`,
-        `- max-kept ${mergedOpts.maxMessagesKept} msg`,
-        `- adapt-threshold ${mergedOpts.adaptiveThreshold ? "on" : "off"}`,
-        `- slice-boost ${mergedOpts.sliceAwareBoost ? "on" : "off"}`,
-        `- dropped-digest ${mergedOpts.droppedMessageDigest ? "on" : "off"}`,
-        `- milvus ${mergedOpts.milvusUrl}`,
-      ];
-
-      if (state.cachedPatterns.length > 0) {
-        dcpBlock.push("", "## honcho patterns");
-        state.cachedPatterns.forEach((p) => dcpBlock.push(`- ${p}`));
-      }
-
-      // Append brain liveness status
+      // Always-on brain liveness — compact, high signal
       const brainState = await readBrainState();
+      let brainLine = "";
       if (brainState) {
         const icon = brainState.status === "Alive" ? "🧠" : brainState.status === "Stale" ? "💤" : "❓";
         const age = brainState.last_data_at_ms === 0 ? "never" : `${Math.round((Date.now() - brainState.last_data_at_ms) / 1000)}s ago`;
-        dcpBlock.push("", `${icon} BRAIN ${brainState.status}\n    ▲\n   / \\\n  /___\\\n  patterns:${brainState.patterns_total} findings:${brainState.findings_total} units:${brainState.units_processed} last:${age}`);
+        brainLine = `\n${icon} BRAIN ${brainState.status} | patterns:${brainState.patterns_total} findings:${brainState.findings_total} units:${brainState.units_processed} | last:${age}`;
       }
 
-      ctx.systemPrompt = (ctx.systemPrompt ?? "") + "\n\n" + dcpBlock.join("\n");
+      const kompressBlock = [
+        `## kompress auto-pruning | threshold ${activeThreshold.toFixed(2)} | density ${density.toFixed(2)} | max-kept ${mergedOpts.maxMessagesKept} msg`,
+        brainLine,
+      ].filter(Boolean);
+
+      if (state.cachedPatterns.length > 0) {
+        kompressBlock.push("", "## honcho patterns");
+        state.cachedPatterns.forEach((p) => kompressBlock.push(`- ${p}`));
+      }
+
+      ctx.systemPrompt = (ctx.systemPrompt ?? "") + "\n\n" + kompressBlock.join("\n");
     },
 
     "experimental.compaction.autocontinue": async (
