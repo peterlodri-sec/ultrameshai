@@ -8,9 +8,22 @@ tokio = { version = "1.38", features = ["full"] }
 prost = "0.14"
 thiserror = "1.0"
 tracing = "0.1"
+axum = "0.7"
+reqwest = { version = "0.11", features = ["json"] }
+hmac = "0.12"
+sha2 = "0.10"
+hex = "0.4"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+chrono = { version = "0.4", features = ["serde"] }
+tower-http = { version = "0.5", features = ["cors"] }
+bytes = "1.0"
+http = "1.0"
+tracing-subscriber = "0.3"
 
 [build-dependencies]
 prost-build = "0.14"
 
 [dev-dependencies]
 tempfile = "3.10"
+tokio-test = "0.4"

@@ -10,6 +10,8 @@ pub enum RegistryError {
     NodeNotFound(String),
     #[error("no node fits requirements (tier={tier}, need={need_mb}MB)")]
     NoFit { tier: String, need_mb: u64 },
+    #[error("crypto error: {0}")]
+    Crypto(String),
 }
 
 pub type Result<T> = std::result::Result<T, RegistryError>;

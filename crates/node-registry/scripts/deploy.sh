@@ -4,10 +4,10 @@
 set -e
 
 echo "Building node-registry..."
-cargo build --release --manifest-path crates/node-registry/Cargo.toml
+cargo build --manifest-path crates/node-registry/Cargo.toml
 
 echo "Copying binary to nuremberg-hq..."
-scp target/release/node-registry root@nuremberg-hq:/opt/node-registry/node-registry
+scp crates/node-registry/target/debug/node-registry root@nuremberg-hq:/opt/node-registry/node-registry
 
 echo "Copying systemd service..."
 scp crates/node-registry/systemd/node-registry.service root@nuremberg-hq:/etc/systemd/system/

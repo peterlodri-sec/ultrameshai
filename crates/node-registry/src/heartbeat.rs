@@ -60,7 +60,7 @@ impl HeartbeatListener {
             let (len, _) = socket.recv_from(&mut buf).await?;
             if let Ok(hb) = NodeHeartbeat::decode(&buf[..len]) {
                 let mut reg = self.registry.lock().unwrap();
-                reg.update(hb);
+                reg.update_from_heartbeat(&hb);
             }
         }
     }

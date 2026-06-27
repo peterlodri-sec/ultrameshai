@@ -7,9 +7,9 @@ Type=exec
 ExecStart=/opt/node-registry/node-registry
 WorkingDirectory=/opt/node-registry
 Environment="RUST_LOG=info"
-Environment="TAILSCALE_API_KEY=tskey-..."
-Environment="NODE_REGISTRY_TAILNET=todolistsec.ts.net"
-Environment="HEARTBEAT_SECRET=..."
+Environment="TAILSCALE_API_KEY=tskey-api-kHbtbGGbY111CNTRL-Vo1q5ZeLYCBg7ijirfDmBBJw8w5YuauM"
+Environment="NODE_REGISTRY_TAILNET=tail2870dc.ts.net"
+Environment="HEARTBEAT_SECRET=a2a40405237d2f3f3bb913f1ef99360e1301618055dd49c709a6435e9ba77ca9"
 Restart=always
 RestartSec=5
 

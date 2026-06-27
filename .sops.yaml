@@ -1,0 +1,6 @@
+# .sops.yaml for ultrameshai
+# age key from ~/.config/sops/age/keys.txt
+creation_rules:
+  - path_regex: .env$
+    age: >-
+      age1ql3z7hjy54q8wlnfxqs5w6ffp67q2q4v8t4zq8f7pq凝G5X7yR
