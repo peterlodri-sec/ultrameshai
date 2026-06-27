@@ -1,0 +1,23 @@
+[package]
+name = "loop-engineering-orchestrator"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+toml = "0.8"
+tokio = { version = "1.35", features = ["rt", "rt-multi-thread", "macros", "fs", "sync", "time"] }
+arc-swap = "1.7"
+notify = "6.1"
+thiserror = "1.0"
+
+# Optional dependencies for Rig integration
+rig-core = { version = "0.11", optional = true }
+schemars = { version = "0.8", optional = true }
+
+[features]
+default = []
+rig = ["dep:rig-core", "dep:schemars"]
+
+[dev-dependencies]
+tempfile = "3.8"

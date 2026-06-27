@@ -10,5 +10,6 @@ members = [
     "crates/mempalace",
     "crates/honcho",
     "crates/agent-core",
+    "crates/orchestrator",
 ]
 
