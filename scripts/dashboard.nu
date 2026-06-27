@@ -3,6 +3,31 @@
 # UltrameshAI Telemetry Dashboard
 # Displays live stats, loop performance, and resource utilization from mempalace.db
 
+# Read brain state from brain-state.json and return dict
+def get-brain-state [] {
+    let path = ($env.HOME | path join ".cache" "ultrameshai" "brain-state.json")
+    if ($path | path exists) {
+        try {
+            open $path | from json
+        } catch {
+            null
+        }
+    } else {
+        null
+    }
+}
+
+# Render brain banner line
+def brain-line [state] {
+    if $state != null {
+        let icon = if $state.status == "Alive" { "🧠" } else if $state.status == "Stale" { "💤" } else { "❓" }
+        let age = if ($state.last_data_at_ms == 0) { "never" } else { $"($state.last_data_at_ms)s ago" }
+        print $"  $icon BRAIN ($state.status) | patterns: ($state.patterns_total) findings: ($state.findings_total) units: ($state.units_processed) last: ($age)"
+    } else {
+        print "  ❓ BRAIN (no state file — honcho daemon may not be running)"
+    }
+}
+
 def main [
   --db-path: string = "mempalace.db"
 ] {
@@ -15,6 +40,11 @@ def main [
   print $"(ansi cyan_bold)=================================================================(ansi reset)"
   print $"(ansi white_bold)🛸 UltrameshAI Fleet Telemetry Dashboard (mempalace)(ansi reset)"
   print $"(ansi cyan_bold)=================================================================(ansi reset)"
+  print ""
+
+  # Brain Liveness Banner
+  let brain_state = (get-brain-state)
+  brain-line $brain_state
   print ""
 
   # 1. Overall Status Summary
