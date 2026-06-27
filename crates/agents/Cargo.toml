@@ -1,0 +1,22 @@
+[package]
+name = "loop-engineering-agents"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1.38", features = ["full"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+tracing = "0.1"
+async-trait = "0.1"
+futures-util = "0.3"
+
+# Cognition layer
+loop-engineering-cognition = { path = "../cognition" }
+
+# Loops crate
+loop-engineering-loops = { path = "../loops" }
+
+[dev-dependencies]
+tokio = { version = "1.38", features = ["full", "test-util"] }
