@@ -22,19 +22,19 @@ impl RigClient {
     /// - OVHCLOUD_AI_API_KEY: Your OVHcloud AI API key
     /// 
     /// Optional env vars:
-    /// - OVHCLOUD_AI_BASE_URL: Defaults to OVHcloud AI endpoint
-    /// - OVHCLOUD_AI_MODEL: Defaults to mistralai/Mistral-7B-Instruct-v0.3
+    /// - OVHCLOUD_AI_BASE_URL: Defaults to OVHcloud AI Endpoints
+    /// - OVHCLOUD_AI_MODEL: Defaults to Meta-Llama-3_3-70B-Instruct
     pub fn from_env() -> std::result::Result<Self, CognitionError> {
         let api_key = std::env::var("OVHCLOUD_AI_API_KEY")
             .map_err(|_| CognitionError::Rig("OVHCLOUD_AI_API_KEY not set".to_string()))?;
         
         let base_url = std::env::var("OVHCLOUD_AI_BASE_URL")
-            .unwrap_or_else(|_| "https://api.ovhcloud.com/ai".to_string());
+            .unwrap_or_else(|_| "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1".to_string());
         
         let client = openai::Client::from_url(&api_key, &base_url);
         
         let default_model = std::env::var("OVHCLOUD_AI_MODEL")
-            .unwrap_or_else(|_| "mistralai/Mistral-7B-Instruct-v0.3".to_string());
+            .unwrap_or_else(|_| "Meta-Llama-3_3-70B-Instruct".to_string());
         
         Ok(Self {
             client,
