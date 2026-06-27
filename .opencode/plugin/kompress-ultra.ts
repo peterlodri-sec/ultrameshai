@@ -227,6 +227,18 @@ function estimateTokens(text: string): number {
   return Math.max(1, Math.min(4096, Math.ceil(len / 4)));
 }
 
+// ─── Brain State Reader ────────────────────────────────────────────────────────
+
+async function readBrainState(): Promise<BrainState | null> {
+  const path = `${process.env.HOME}/.cache/ultrameshai/brain-state.json`;
+  try {
+    const content = await Bun.file(path).text();
+    return JSON.parse(content) as BrainState;
+  } catch {
+    return null;
+  }
+}
+
 // ─── DCP Status Display ───────────────────────────────────────────────────────
 
 interface DcpStats {
@@ -239,6 +251,16 @@ interface DcpStats {
   history: number[];
   tokensPruned: number;
   tokensKept: number;
+}
+
+interface BrainState {
+  status: string;
+  patterns_total: number;
+  findings_total: number;
+  units_processed: number;
+  last_data_at_ms: number;
+  poll_count: number;
+  interval_ms: number;
 }
 
 function buildDcpDisplay(stats: DcpStats): Message {
@@ -350,6 +372,14 @@ export default (
         };
         const dcpDisplay = buildDcpDisplay(dcpStats);
 
+        // Append brain liveness to DCP display
+        const brainState = await readBrainState();
+        if (brainState) {
+          const icon = brainState.status === "Alive" ? "🧠" : brainState.status === "Stale" ? "💤" : "❓";
+          const age = brainState.last_data_at_ms === 0 ? "never" : `${Math.round((Date.now() - brainState.last_data_at_ms) / 1000)}s ago`;
+          dcpDisplay.content += `\n\n${icon} BRAIN ${brainState.status} | patterns:${brainState.patterns_total} findings:${brainState.findings_total} units:${brainState.units_processed} last:${age}`;
+        }
+
         // Inject display message + update context
         (ctx as { messages: Message[] }).messages = [dcpDisplay, ...final];
 
@@ -400,6 +430,14 @@ export default (
       if (state.cachedPatterns.length > 0) {
         dcpBlock.push("", "## honcho patterns");
         state.cachedPatterns.forEach((p) => dcpBlock.push(`- ${p}`));
+      }
+
+      // Append brain liveness status
+      const brainState = await readBrainState();
+      if (brainState) {
+        const icon = brainState.status === "Alive" ? "🧠" : brainState.status === "Stale" ? "💤" : "❓";
+        const age = brainState.last_data_at_ms === 0 ? "never" : `${Math.round((Date.now() - brainState.last_data_at_ms) / 1000)}s ago`;
+        dcpBlock.push("", `${icon} BRAIN ${brainState.status} | patterns:${brainState.patterns_total} findings:${brainState.findings_total} units:${brainState.units_processed} last:${age}`);
       }
 
       ctx.systemPrompt = (ctx.systemPrompt ?? "") + "\n\n" + dcpBlock.join("\n");
