@@ -68,47 +68,41 @@ impl ClusterTopologyRouter {
         // 1. Try to load-balance using active registry if available
         if let Some(ref reg) = **self.registry.load() {
             if let Ok(registry) = reg.lock() {
-                let live_nodes = registry.list();
+                let live_nodes = registry.get_all_nodes();
                 if !live_nodes.is_empty() {
                     let best_live = live_nodes.into_iter()
-                        .filter(|hb| hb.capabilities.iter().any(|c| c == capability))
+                        .filter(|entry| entry.metadata.capabilities.iter().any(|c| c == capability))
                         .min_by(|a, b| {
-                            let cmp_units = a.units_running.cmp(&b.units_running);
-                            if cmp_units != std::cmp::Ordering::Equal {
-                                cmp_units
-                            } else {
-                                b.memory_free_mb.cmp(&a.memory_free_mb)
-                            }
+                            // Compare by load_avg (lower is better)
+                            let load_a = a.metadata.load_avg.unwrap_or(1.0);
+                            let load_b = b.metadata.load_avg.unwrap_or(1.0);
+                            load_a.partial_cmp(&load_b).unwrap_or(std::cmp::Ordering::Equal)
                         });
 
                     if let Some(hb) = best_live {
                         tracing::debug!(
-                            "Dynamic load-balancer selected node '{}' (units_running={}, free_mem={}MB) for capability '{}'",
-                            hb.node_id,
-                            hb.units_running,
-                            hb.memory_free_mb,
+                            "Dynamic load-balancer selected node '{}' (load_avg={:?}, memory={}MB) for capability '{}'",
+                            hb.metadata.node_id,
+                            hb.metadata.load_avg,
+                            hb.metadata.memory_mb,
                             capability
                         );
                         
-                        let ip = hb.node_id.parse::<IpAddr>().unwrap_or_else(|_| {
+                        let ip = hb.metadata.node_id.parse::<IpAddr>().unwrap_or_else(|_| {
                             let current = self.topology.load();
                             current.nodes.iter()
-                                .find(|n| n.ip.to_string() == hb.node_id)
+                                .find(|n| n.ip.to_string() == hb.metadata.node_id)
                                 .map(|n| n.ip)
                                 .unwrap_or_else(|| "127.0.0.1".parse().unwrap())
                         });
 
-                        let role = if hb.node_type == "compute" || hb.node_type == "vm" {
-                            NodeRole::Compute
-                        } else {
-                            NodeRole::Worker
-                        };
+                        let role = NodeRole::Compute; // Simplified
 
                         return Some(NodeProfile {
                             ip,
                             role,
-                            capabilities: hb.capabilities.clone(),
-                            runtime: if hb.node_type == "vm" { RuntimeType::RustNative } else { RuntimeType::Bun },
+                            capabilities: hb.metadata.capabilities.clone(),
+                            runtime: RuntimeType::RustNative,
                         });
                     }
                 }
@@ -393,47 +387,44 @@ mod tests {
         let registry = Arc::new(std::sync::Mutex::new(NodeRegistry::new()));
         {
             let mut reg = registry.lock().unwrap();
-            reg.update(NodeHeartbeat {
-                node_id: "100.64.0.88".to_string(),
-                node_type: "vm".to_string(),
-                cpu_cores: 8,
-                memory_total_mb: 16384,
-                memory_free_mb: 8000,
-                units_running: 5,
-                capabilities: vec!["cuda".to_string()],
-                timestamp_ms: 1000,
-            });
-            reg.update(NodeHeartbeat {
-                node_id: "100.64.0.99".to_string(),
-                node_type: "vm".to_string(),
-                cpu_cores: 8,
-                memory_total_mb: 16384,
-                memory_free_mb: 8000,
-                units_running: 1,
-                capabilities: vec!["cuda".to_string()],
-                timestamp_ms: 1000,
-            });
+            reg.register_node(loop_engineering_node_registry::types::NodeEntry::new(
+                loop_engineering_node_registry::types::NodeMetadata {
+                    node_id: "100.64.0.88".to_string(),
+                    capabilities: vec!["cuda".to_string()],
+                    memory_mb: 8000,
+                    load_avg: Some(0.5),
+                    region: None,
+                }
+            ));
+            reg.register_node(loop_engineering_node_registry::types::NodeEntry::new(
+                loop_engineering_node_registry::types::NodeMetadata {
+                    node_id: "100.64.0.99".to_string(),
+                    capabilities: vec!["cuda".to_string()],
+                    memory_mb: 8000,
+                    load_avg: Some(0.3),
+                    region: None,
+                }
+            ));
         }
 
         let router = router.with_registry(registry.clone());
 
-        // Should route to Node 2 (100.64.0.99) since it has fewer running units (1 vs 5)
+        // Should route to Node 2 (100.64.0.99) since it has lower load
         let node = router.find_optimal_node("cuda").unwrap();
         assert_eq!(node.ip, "100.64.0.99".parse::<IpAddr>().unwrap());
 
-        // Update Node 1 to 0 units running -> should route to Node 1 now
+        // Update Node 1 to have lower load -> should route to Node 1 now
         {
             let mut reg = registry.lock().unwrap();
-            reg.update(NodeHeartbeat {
-                node_id: "100.64.0.88".to_string(),
-                node_type: "vm".to_string(),
-                cpu_cores: 8,
-                memory_total_mb: 16384,
-                memory_free_mb: 8000,
-                units_running: 0,
-                capabilities: vec!["cuda".to_string()],
-                timestamp_ms: 2000,
-            });
+            reg.register_node(loop_engineering_node_registry::types::NodeEntry::new(
+                loop_engineering_node_registry::types::NodeMetadata {
+                    node_id: "100.64.0.88".to_string(),
+                    capabilities: vec!["cuda".to_string()],
+                    memory_mb: 8000,
+                    load_avg: Some(0.1),
+                    region: None,
+                }
+            ));
         }
 
         let node = router.find_optimal_node("cuda").unwrap();

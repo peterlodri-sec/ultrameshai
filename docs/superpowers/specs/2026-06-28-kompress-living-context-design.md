@@ -80,19 +80,55 @@ Kompress is a context management layer, not a storage layer. It reads/writes mil
 
 **When:** After pruning, before next turn.
 
+**Two modes — generative first, heuristic fallback:**
+
+| Mode | Engine | Savings | Latency |
+|------|--------|---------|---------|
+| Generative (primary) | Fine-tuned 3B local model (llama.cpp FFI) | 80-90% | <25ms |
+| Heuristic (fallback) | Rules-based regex (articles, filler, pleasantries) | 40-75% | <5ms |
+
+**Fallback triggers:** VRAM >85%, latency >150ms, model not loaded, quantization error.
+
 **Compression by age** (TokenPilot compliance: only compress tail, never prefix):
-| Age (messages from end) | Level | Savings | Treatment |
-|------------------------|-------|---------|-----------|
-| 0-5 | Verbatim | 0% | Untouched (KV cache prefix) |
-| 6-15 | Caveman-lite | 40% | Drop articles, filler, pleasantries. Code exact. |
-| 16+ | Caveman-ultra | 75% | Fragments OK. [thing] [action] [reason]. Code exact. |
-| Brain-backed | Brain-backed | 90% | Content hash matches existing milvus entry; compress to pointer + key facts |
+| Age (messages from end) | Level | Treatment |
+|------------------------|-------|-----------|
+| 0-5 | Verbatim | Untouched (KV cache prefix) |
+| 6-15 | Caveman-lite | Generative: semantic compression. Fallback: drop articles/filler |
+| 16+ | Caveman-ultra | Generative: `[thing] [action] [reason]` syntax. Fallback: fragments |
+| Brain-backed | Brain-backed | Content hash in milvus → `[brain-ref: {hash_prefix}] + 1-sentence` |
 
-**Brain-backed check:** Before compressing, hash message content (SHA-256 truncated to 128 bits). Query milvus for matching content_hash. If found, replace with `[brain-ref: {hash_prefix}] + 1-sentence summary`.
+**Technical fidelity (both modes):** Code fences, error messages, API names, file paths, identifiers are never compressed. Only prose is compressed.
 
-**Rewriter implementation:** Deterministic text transform, not an LLM call. Rules-based: drop articles (a/an/the), filler (just/really/basically), pleasantries, hedging. Short synonyms. Fragments OK. Code/API/errors exact. Pattern: `[thing] [action] [reason]`. Runs locally in the plugin, no external dependency.
+**Brain-backed check:** SHA-256 truncated to 128 bits. Query milvus for matching content_hash. If found, replace with pointer + key facts.
 
 **Round-trip test:** After compression, verify markdown structure is intact (fences balanced, links valid).
+
+### 2.4 Co-Processor Model (Inline Synthesis)
+
+**Role:** Fused context co-processor. Lives in same process as agent. No HTTP, no RPC — native FFI to llama.cpp.
+
+**Hardware targets:**
+
+| Model | Quantization | RAM | TTFT | Deployment |
+|-------|-------------|-----|------|------------|
+| Qwen2.5-1.5B | Q8_0 | ~1.8GB | <15ms | M1/M3 Pro thread |
+| Llama-3.2-3B | Q4_K_M | ~2.2GB | <25ms | Apple Silicon unified memory |
+| Mistral-7B | Q4_K_M | ~5.5GB | <45ms | Bare-metal server |
+
+**What it does:**
+1. **Generative Rewriter:** Fine-tuned on caveman compression dataset. Takes long engineering conversations → outputs `[thing] [action] [reason]` syntax. Code blocks and identifiers are immutable.
+2. **Composer Synthesis:** Pre-digests 5-channel RRF fusion results from milvus → outputs dense 50-token brain state line before main context hits the frontier model.
+3. **Scoring assist:** Single forward pass over 50-message history → structured JSON array of relevance scores + extracted graph triples (G-Long).
+
+**Fine-tuning datasets:**
+- Caveman Translator: System logs → caveman-compressed versions. Code blocks preserved verbatim.
+- Context Scorer: 50-message histories → JSON arrays of relevance scores + graph triples.
+
+**Memory management:**
+- Load model into unified memory on startup, keep resident
+- VRAM >85% → graceful degradation to heuristic rewriter
+- Latency >150ms → skip generative pass, use heuristic fallback
+- No impact on primary agent loop — runs inline during transform hooks
 
 ### 2.4 Circulator — Feed Discarded Knowledge to Brain
 
@@ -110,7 +146,7 @@ Kompress is a context management layer, not a storage layer. It reads/writes mil
 - Async write, never block the agent
 - Queue cap: 100 entries
 - Batch flush: every 10 entries or 30 seconds
-- On overflow: drop oldest unflushed entries (they're already pruned from context)
+- On overflow: spill to `~/.cache/ultrameshai/overflow-circulator.jsonl` (append-only). Honcho daemon replays when circuit breaker closes.
 
 **Conflict-driven forgetting** (from Core Concepts): New evidence supersedes old memories. Supersession chains preserve history.
 
@@ -212,18 +248,18 @@ interface MemoryControl {
 
 ```
 Turn N:
-  1. Composer: query milvus → inject brain state + patterns into system prompt
+  1. Composer: query milvus → co-processor synthesizes brain state → inject into system prompt
   2. LLM: process context, return completion
   3. Pruner: score all messages → identify candidates below threshold
-  4. Rewriter: compress by age (verbatim 0-5, lite 6-15, ultra 16+)
+  4. Rewriter: compress by age (generative co-processor or heuristic fallback)
   5. Circulator: async embed pruned messages → milvus
   6. Next turn begins with optimized context
 ```
 
 **Timing:**
-- Composer: <100ms (milvus query + format)
+- Composer: <100ms (milvus query + co-processor synthesis <25ms)
 - Pruner: <50ms (scoring is local)
-- Rewriter: <200ms (caveman compression is deterministic)
+- Rewriter: <200ms (generative <25ms, heuristic <5ms)
 - Circulator: async, never blocks
 
 ---
@@ -256,7 +292,14 @@ Escalation ladder:
 
 - Async write, queue cap 100
 - Batch flush: every 10 entries or 30 seconds
-- On overflow: drop oldest unflushed (already pruned from context)
+- On overflow: spill to `~/.cache/ultrameshai/overflow-circulator.jsonl` (append-only). Honcho daemon replays when circuit breaker closes.
+
+### 5.7 Co-Processor Fallback
+
+- VRAM >85%: graceful degradation to heuristic rewriter
+- Latency >150ms: skip generative pass, use heuristic fallback
+- Model not loaded: heuristic fallback, no error
+- Quantization error: heuristic fallback, log warning
 
 ### 5.5 Session Boundary
 
