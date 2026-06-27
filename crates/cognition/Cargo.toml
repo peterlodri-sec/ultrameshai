@@ -13,6 +13,8 @@ tracing = "0.1"
 prost = "0.14"
 async-trait = "0.1"
 milvus-brain = { path = "../milvus-brain" }
+agent-core = { path = "../agent-core" }
+
 
 [dev-dependencies]
 tokio = { version = "1.38", features = ["full", "test-util"] }

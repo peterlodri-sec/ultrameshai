@@ -9,4 +9,6 @@ members = [
     "crates/milvus-brain",
     "crates/mempalace",
     "crates/honcho",
+    "crates/agent-core",
 ]
+

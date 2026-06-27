@@ -9,6 +9,16 @@ pub enum Role {
     Assistant,
 }
 
+impl Role {
+    pub fn as_str(&self) -> &str {
+        match self {
+            Role::System => "system",
+            Role::User => "user",
+            Role::Assistant => "assistant",
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChatMessage {
     pub role: Role,
@@ -79,10 +89,35 @@ impl LlmClient {
             });
         }
 
-        // Real implementation would call the LLM API
-        // For now, return error if not mock
-        Err(CognitionError::LlmApi("Real API not implemented".to_string()))
+        let api_key = self.api_key.as_deref().unwrap_or("");
+        let base_url = self.base_url.as_deref().unwrap_or("https://dashscope.aliyuncs.com/api/v1");
+
+        let core_client = agent_core::client::LlmClient::with_config(
+            &self.model_id,
+            api_key,
+            base_url,
+        ).map_err(|e| CognitionError::LlmApi(format!("Failed to create agent-core client: {}", e)))?;
+
+        let core_messages: Vec<(String, String)> = messages
+            .iter()
+            .map(|m| (m.role.as_str().to_string(), m.content.clone()))
+            .collect();
+
+        let refs: Vec<(&str, &str)> = core_messages
+            .iter()
+            .map(|(r, c)| (r.as_str(), c.as_str()))
+            .collect();
+
+        let response = core_client.chat(&refs).await
+            .map_err(|e| CognitionError::LlmApi(e.to_string()))?;
+
+        Ok(ChatResponse {
+            content: response,
+            model: self.model_id.clone(),
+            usage: None,
+        })
     }
+
 
     pub async fn chat_with_tools(
         &self,
