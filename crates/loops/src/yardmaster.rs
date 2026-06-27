@@ -151,7 +151,8 @@ pub struct YardmasterLoop {
 impl YardmasterLoop {
     pub fn new() -> Self {
         let router = ModelRouter::default();
-        let client = router.create_client("coordinator", "mock-key", "http://localhost")
+        // Use a valid loop type for the client, fallback to mock if needed
+        let client = router.create_client("yardmaster", "mock-key", "http://localhost")
             .unwrap_or_else(|| LlmClient::mock("anthropic/claude-3-5-sonnet"));
         let session = Session::new("yardmaster-loop", "unit-000");
         let dispatcher = PromptDispatcher::default();
