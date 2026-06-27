@@ -1,6 +1,8 @@
 use crate::error::{MilvusError, Result};
 use crate::query::QueryBuilder;
 use crate::write::ResearchFinding;
+use crate::memory::MemoryStore;
+use async_trait::async_trait;
 use std::collections::HashMap;
 use tokio::sync::RwLock;
 
@@ -94,6 +96,22 @@ impl MockMilvusClient {
 impl Default for MockMilvusClient {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+/// Implement MemoryStore trait for MockMilvusClient
+#[async_trait]
+impl MemoryStore for MockMilvusClient {
+    async fn write_finding(&self, finding: ResearchFinding) -> Result<()> {
+        self.write_finding(finding).await
+    }
+
+    async fn search(&self, query: QueryBuilder) -> Result<Vec<ResearchFinding>> {
+        self.search(query).await
+    }
+
+    async fn delete_finding(&self, finding_id: &str) -> Result<()> {
+        self.delete_finding(finding_id).await
     }
 }
 

@@ -1,5 +1,5 @@
 use crate::client::{ChatMessage, Role};
-use milvus_brain::{MilvusClient, ResearchFinding, QueryBuilder};
+use milvus_brain::{MemoryStore, ResearchFinding, QueryBuilder};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Clone)]
@@ -58,37 +58,34 @@ impl Session {
     }
 }
 
-/// ResearchSession - wraps Session + MilvusClient for research workflows
-pub struct ResearchSession {
+/// ResearchSession - wraps Session + MemoryStore for research workflows
+/// Generic over storage backend (Milvus, mempalace, honcho, in-memory)
+pub struct ResearchSession<S: MemoryStore> {
     session: Session,
-    milvus: MilvusClient,
+    store: S,
     source_agent: String,
 }
 
-impl ResearchSession {
-    pub async fn new(loop_id: &str, unit_id: &str, milvus_uri: &str, source_agent: &str) -> crate::error::Result<Self> {
-        let session = Session::new(loop_id, unit_id);
-        let milvus = MilvusClient::connect(milvus_uri)
-            .await
-            .map_err(|e| crate::error::CognitionError::Provider(e.to_string()))?;
-        Ok(Self {
+impl<S: MemoryStore> ResearchSession<S> {
+    pub fn new(session: Session, store: S, source_agent: &str) -> Self {
+        Self {
             session,
-            milvus,
+            store,
             source_agent: source_agent.to_string(),
-        })
+        }
     }
 
     /// Write finding with auto-generated embedding
     pub async fn write_finding(&self, summary: &str, tags: Vec<String>) -> crate::error::Result<()> {
-        // Generate embedding via milvus (auto-embedding enabled on server)
+        // Generate embedding via store (auto-embedding enabled on server)
         let finding = ResearchFinding::with_uuid(
             &self.source_agent,
             &self.session.loop_id,
             summary,
-            vec![], // Empty - milvus server will embed if configured
+            vec![], // Empty - store will embed if configured
             tags,
         );
-        self.milvus.write_finding(finding)
+        self.store.write_finding(finding)
             .await
             .map_err(|e| crate::error::CognitionError::Provider(e.to_string()))?;
         Ok(())
@@ -100,7 +97,7 @@ impl ResearchSession {
             .similarity(query, top_k)
             .filter_agent(&self.source_agent)
             .build();
-        self.milvus.search(query_builder)
+        self.store.search(query_builder)
             .await
             .map_err(|e| crate::error::CognitionError::Provider(e.to_string()))
     }

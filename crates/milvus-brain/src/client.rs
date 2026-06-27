@@ -1,6 +1,8 @@
 use crate::error::{MilvusError, Result};
 use crate::write::ResearchFinding;
 use crate::query::QueryBuilder;
+use crate::memory::MemoryStore;
+use async_trait::async_trait;
 
 /// MilvusClient - async connection to Milvus server
 pub struct MilvusClient {
@@ -69,6 +71,22 @@ impl MilvusClient {
     /// Get server URI
     pub fn uri(&self) -> &str {
         &self.uri
+    }
+}
+
+/// Implement MemoryStore trait for MilvusClient
+#[async_trait]
+impl MemoryStore for MilvusClient {
+    async fn write_finding(&self, finding: ResearchFinding) -> Result<()> {
+        self.write_finding(finding).await
+    }
+
+    async fn search(&self, query: QueryBuilder) -> Result<Vec<ResearchFinding>> {
+        self.search(query).await
+    }
+
+    async fn delete_finding(&self, finding_id: &str) -> Result<()> {
+        self.delete_finding(finding_id).await
     }
 }
 
