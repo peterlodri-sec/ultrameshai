@@ -1566,6 +1566,8 @@ dependencies = [
  "milvus-brain",
  "prost",
  "reqwest 0.12.28",
+ "rig-core",
+ "schemars 0.8.22",
  "serde",
  "serde_json",
  "thiserror 1.0.69",

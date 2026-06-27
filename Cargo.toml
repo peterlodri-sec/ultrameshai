@@ -13,3 +13,6 @@ members = [
     "crates/orchestrator",
 ]
 
+[workspace.dependencies]
+rig-core = "0.11"
+schemars = "0.8"

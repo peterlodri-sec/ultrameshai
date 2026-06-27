@@ -14,7 +14,12 @@ prost = "0.14"
 async-trait = "0.1"
 milvus-brain = { path = "../milvus-brain" }
 agent-core = { path = "../agent-core" }
+rig-core = { version = "0.11", optional = true }
+schemars = { version = "0.8", optional = true }
 
+
+[features]
+rig = ["dep:rig-core", "dep:schemars"]
 
 [dev-dependencies]
 tokio = { version = "1.38", features = ["full", "test-util"] }
