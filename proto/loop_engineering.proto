@@ -1,0 +1,69 @@
+syntax = "proto3";
+
+package loop_engineering;
+
+// Agent unit spawn request (yardmaster/loop -> unit)
+message UnitSpawn {
+  string unit_id = 1;
+  string slice_id = 2;
+  string loop_type = 3;        // "coder", "tester", "red-team", etc.
+  string sandbox_tier = 4;     // "standard", "test", "red-team", "devops"
+  string nix_shell = 5;        // nix shell path to instantiate
+  uint32 memory_limit_mb = 6;  // soft cap (100), elastic to 150, kill at 160
+  string assigned_node = 7;    // headscale node name, or empty for self-schedule
+}
+
+// Agent unit death report (unit -> mempalace)
+message UnitStats {
+  string unit_id = 1;
+  string slice_id = 2;
+  string loop_type = 3;
+  uint64 spawned_at_ms = 4;
+  uint64 died_at_ms = 5;
+  uint32 peak_memory_mb = 6;
+  string status = 7;            // "completed", "killed", "failed"
+  string snapshot_path = 8;    // if killed at >160MB
+  bytes stats_blob = 9;        // loop-specific telemetry (serialized)
+}
+
+// Slice assignment (yardmaster -> loop)
+message SliceAssign {
+  string slice_id = 1;
+  string task_id = 2;
+  string loop_type = 3;        // which loop owns this slice
+  string spec = 4;             // slice spec (E2E capability description)
+  repeated string dependencies = 5;  // other slice_ids this depends on
+  string execution_mode = 6;   // "pipeline" or "wave"
+}
+
+// Node capacity heartbeat (node -> registry)
+message NodeHeartbeat {
+  string node_id = 1;          // headscale node name
+  string node_type = 2;        // "vm" or "rpi"
+  uint32 cpu_cores = 3;
+  uint64 memory_total_mb = 4;
+  uint64 memory_free_mb = 5;
+  uint32 units_running = 6;
+  repeated string capabilities = 7;  // "standard", "test", "red-team", "devops"
+  uint64 timestamp_ms = 8;
+}
+
+// Research finding (any research agent -> milvus BRAIN)
+message ResearchFinding {
+  string finding_id = 1;
+  string source_agent = 2;     // "deep-research", "junior-burst", "red-team-research"
+  string topic = 3;
+  string summary = 4;
+  bytes embedding = 5;         // vector embedding
+  repeated string tags = 6;
+  uint64 timestamp_ms = 7;
+}
+
+// Ralph coaching hint (ralph -> loop)
+message RalphHint {
+  string ralph_id = 1;
+  string target_loop = 2;      // which loop to coach
+  string hint = 3;
+  string severity = 4;         // "info", "warn", "critical"
+  uint64 timestamp_ms = 5;
+}

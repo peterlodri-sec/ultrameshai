@@ -1,9 +1,23 @@
-# Placeholder — real derivation added in Task 2
 { pkgs }:
+
 pkgs.stdenv.mkDerivation {
-  name = "loop-engineering-protobuf-gen-stub";
+  name = "loop-engineering-protobuf-gen";
   src = ../proto;
-  nativeBuildInputs = with pkgs; [ protobuf ];
-  buildPhase = "mkdir -p $out";
-  installPhase = "mkdir -p $out/rust";
+
+  nativeBuildInputs = with pkgs; [
+    protobuf
+    protoc-gen-prost
+  ];
+
+  buildPhase = ''
+    mkdir -p $out/rust
+    protoc \
+      --prost_out=$out/rust \
+      --prost_opt=compile=false \
+      loop_engineering.proto
+  '';
+
+  installPhase = ''
+    cp -r $out/rust $out/
+  '';
 }
