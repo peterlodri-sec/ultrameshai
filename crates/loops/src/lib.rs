@@ -15,7 +15,7 @@ pub use deepwork::DeepworkLoop;
 pub use bruteforce_coder::BruteforceCoderLoop;
 pub use deep_research::DeepResearchLoop;
 pub use testers::TestersLoop;
-pub use yardmaster::YardmasterLoop;
+pub use yardmaster::{YardmasterLoop, SlicingStrategy, E2ESlice, ExecutionMode, TaskDecomposition, SliceGraph};
 pub use devops::DevopsLoop;
 pub use ui::UiLoop;
 pub use red_team::RedTeamLoop;
