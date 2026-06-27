@@ -15,3 +15,4 @@ prost-build = "0.14"
 
 [dev-dependencies]
 tokio = { version = "1.38", features = ["full", "test-util"] }
+tempfile = "3.10"
