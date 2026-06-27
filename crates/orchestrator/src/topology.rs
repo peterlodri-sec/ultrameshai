@@ -78,10 +78,14 @@ impl ClusterTopologyRouter {
         let (tx, mut rx) = mpsc::channel::<Event>(10);
         let path = self.file_path.clone();
 
+        tracing::info!("Initializing topology file watcher for {:?}", path);
+
         let mut watcher = RecommendedWatcher::new(
             move |res: Result<Event, notify::Error>| {
                 if let Ok(event) = res {
                     let _ = tx.blocking_send(event);
+                } else if let Err(e) = res {
+                    tracing::error!("Topology watcher encountered OS event error: {:?}", e);
                 }
             },
             notify::Config::default(),
@@ -90,9 +94,11 @@ impl ClusterTopologyRouter {
         if let Some(parent) = path.parent() {
             watcher.watch(parent, RecursiveMode::NonRecursive)
                 .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+            tracing::debug!("Watching parent directory: {:?}", parent);
         } else {
             watcher.watch(Path::new("."), RecursiveMode::NonRecursive)
                 .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+            tracing::debug!("Watching current directory");
         }
 
         // Spawn background task to monitor events
@@ -105,9 +111,24 @@ impl ClusterTopologyRouter {
                         p.file_name() == path.file_name()
                     });
                     if matches_file {
-                        if let Ok(content) = tokio::fs::read_to_string(&path).await {
-                            if let Ok(new_topo) = toml::from_str::<ClusterTopology>(&content) {
-                                self.topology.store(Arc::new(new_topo));
+                        tracing::debug!("Topology file change event detected: {:?}", event.kind);
+                        match tokio::fs::read_to_string(&path).await {
+                            Ok(content) => {
+                                match toml::from_str::<ClusterTopology>(&content) {
+                                    Ok(new_topo) => {
+                                        tracing::info!(
+                                            "Topology configuration successfully hot-reloaded: {} nodes mapped",
+                                            new_topo.nodes.len()
+                                        );
+                                        self.topology.store(Arc::new(new_topo));
+                                    }
+                                    Err(e) => {
+                                        tracing::warn!("Ignoring malformed topology update in {:?}: {:?}", path, e);
+                                    }
+                                }
+                            }
+                            Err(e) => {
+                                tracing::error!("Failed to read modified topology file {:?}: {:?}", path, e);
                             }
                         }
                     }

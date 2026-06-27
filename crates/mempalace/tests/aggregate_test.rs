@@ -2,8 +2,10 @@ use mempalace::{MempalaceClient, UnitStats};
 
 #[tokio::test]
 async fn test_aggregate_by_loop_type() {
-    let db_path = "/tmp/mempalace_test_agg_loop.db";
-    let client = MempalaceClient::connect(db_path).await.unwrap();
+    // Use temp directory for test database
+    let temp_dir = std::env::temp_dir();
+    let db_path = temp_dir.join("mempalace_test_agg_loop.db").to_string_lossy().to_string();
+    let client = MempalaceClient::connect(&db_path).await.unwrap();
 
     // Write test data with different loop types
     client
@@ -48,13 +50,16 @@ async fn test_aggregate_by_loop_type() {
     assert_eq!(tester.unit_count, 1);
     assert_eq!(tester.avg_runtime_ms, 1000.0);
 
-    std::fs::remove_file(db_path).ok();
+    // Clean up
+    std::fs::remove_file(&db_path).ok();
 }
 
 #[tokio::test]
 async fn test_aggregate_by_status() {
-    let db_path = "/tmp/mempalace_test_agg_status.db";
-    let client = MempalaceClient::connect(db_path).await.unwrap();
+    // Use temp directory for test database
+    let temp_dir = std::env::temp_dir();
+    let db_path = temp_dir.join("mempalace_test_agg_status.db").to_string_lossy().to_string();
+    let client = MempalaceClient::connect(&db_path).await.unwrap();
 
     client
         .write_stats(
@@ -97,13 +102,16 @@ async fn test_aggregate_by_status() {
     let failed = results.iter().find(|r| r.status == "failed").unwrap();
     assert_eq!(failed.unit_count, 1);
 
-    std::fs::remove_file(db_path).ok();
+    // Clean up
+    std::fs::remove_file(&db_path).ok();
 }
 
 #[tokio::test]
 async fn test_memory_distribution() {
-    let db_path = "/tmp/mempalace_test_mem_dist.db";
-    let client = MempalaceClient::connect(db_path).await.unwrap();
+    // Use temp directory for test database
+    let temp_dir = std::env::temp_dir();
+    let db_path = temp_dir.join("mempalace_test_mem_dist.db").to_string_lossy().to_string();
+    let client = MempalaceClient::connect(&db_path).await.unwrap();
 
     // Write units with different memory usage
     client
@@ -170,13 +178,16 @@ async fn test_memory_distribution() {
         .unwrap();
     assert_eq!(bucket_150_plus.unit_count, 2); // u5, u6
 
-    std::fs::remove_file(db_path).ok();
+    // Clean up
+    std::fs::remove_file(&db_path).ok();
 }
 
 #[tokio::test]
 async fn test_aggregate_with_empty_table() {
-    let db_path = "/tmp/mempalace_test_agg_empty.db";
-    let client = MempalaceClient::connect(db_path).await.unwrap();
+    // Use temp directory for test database
+    let temp_dir = std::env::temp_dir();
+    let db_path = temp_dir.join("mempalace_test_agg_empty.db").to_string_lossy().to_string();
+    let client = MempalaceClient::connect(&db_path).await.unwrap();
 
     let loop_results = client.aggregate_by_loop_type().await.unwrap();
     assert_eq!(loop_results.len(), 0);
@@ -187,5 +198,6 @@ async fn test_aggregate_with_empty_table() {
     let mem_results = client.memory_distribution().await.unwrap();
     assert_eq!(mem_results.len(), 0);
 
-    std::fs::remove_file(db_path).ok();
+    // Clean up
+    std::fs::remove_file(&db_path).ok();
 }
