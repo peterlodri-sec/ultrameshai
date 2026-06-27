@@ -2,7 +2,10 @@ use crate::error::{MilvusError, Result};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 
-const OVHCLOUD_ENDPOINT: &str = "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1";
+fn get_embedding_endpoint() -> String {
+    std::env::var("OVHCLOUD_EMBEDDING_ENDPOINT")
+        .unwrap_or_else(|_| "https://oai.endpoints.kepler.ai.cloud.ovh.net/v1".to_string())
+}
 
 /// OVHcloud embedding client
 pub struct EmbeddingClient {
@@ -56,9 +59,10 @@ impl EmbeddingClient {
             input: texts,
         };
 
+        let endpoint = get_embedding_endpoint();
         let mut req_builder = self
             .client
-            .post(format!("{}/embeddings", OVHCLOUD_ENDPOINT))
+            .post(format!("{}/embeddings", endpoint))
             .header("Content-Type", "application/json")
             .json(&request);
 

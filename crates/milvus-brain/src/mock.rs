@@ -38,6 +38,8 @@ impl MockMilvusClient {
     }
 
     /// Search findings with query filters
+    /// Note: Mock does not perform similarity ranking - returns unsorted results filtered by metadata.
+    /// For production similarity search, use MilvusClient.
     pub async fn search(&self, query: QueryBuilder) -> Result<Vec<ResearchFinding>> {
         let findings = self.findings.read().await;
         let mut results: Vec<ResearchFinding> = findings.values().cloned().collect();
