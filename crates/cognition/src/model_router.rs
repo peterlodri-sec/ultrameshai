@@ -51,17 +51,17 @@ impl ModelRouter {
     }
     
     pub fn create_client_for_deepwork(&self, api_key: &str, base_url: &str) -> LlmClient {
-        let model = self.default_models.get("deepwork").unwrap();
+        let model = self.default_models.get("deepwork").expect("deepwork model missing from defaults");
         LlmClient::new(model, api_key, base_url)
     }
     
     pub fn create_client_for_bruteforce_coder(&self, api_key: &str, base_url: &str) -> LlmClient {
-        let model = self.default_models.get("bruteforce-coder").unwrap();
+        let model = self.default_models.get("bruteforce-coder").expect("bruteforce-coder model missing from defaults");
         LlmClient::new(model, api_key, base_url)
     }
     
     pub fn create_client_for_juniors(&self, api_key: &str, base_url: &str) -> LlmClient {
-        let model = self.default_models.get("juniors").unwrap();
+        let model = self.default_models.get("juniors").expect("juniors model missing from defaults");
         LlmClient::new(model, api_key, base_url)
     }
     
