@@ -1,6 +1,8 @@
 use crate::traits::{Loop, LoopInput, LoopOutput, LoopStats, Result, LoopError};
 use honcho::LearningPattern;
 use loop_engineering_cognition::{LlmClient, Session, PromptDispatcher, ModelRouter};
+#[cfg(feature = "rig")]
+use loop_engineering_cognition::rig_client::RigClient;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, RwLock};
@@ -146,6 +148,8 @@ pub struct YardmasterLoop {
     honcho_patterns: Arc<RwLock<Vec<LearningPattern>>>,
     strategy: SlicingStrategy,
     slice_graph: Arc<RwLock<SliceGraph>>,
+    #[cfg(feature = "rig")]
+    rig_client: Option<RigClient>,
 }
 
 impl YardmasterLoop {
@@ -164,6 +168,30 @@ impl YardmasterLoop {
             honcho_patterns: Arc::new(RwLock::new(vec![])),
             strategy: SlicingStrategy::default(),
             slice_graph: Arc::new(RwLock::new(SliceGraph::new())),
+            #[cfg(feature = "rig")]
+            rig_client: None,
+        }
+    }
+
+    /// Create YardmasterLoop with Rig client enabled
+    #[cfg(feature = "rig")]
+    pub fn with_rig() -> Self {
+        let router = ModelRouter::default();
+        let client = router.create_client("yardmaster", "mock-key", "http://localhost")
+            .unwrap_or_else(|| LlmClient::mock("anthropic/claude-3-5-sonnet"));
+        let session = Session::new("yardmaster-loop", "unit-000");
+        let dispatcher = PromptDispatcher::default();
+        let rig_client = RigClient::from_env().ok();
+        
+        Self {
+            client,
+            session,
+            dispatcher,
+            stats: LoopStats::default(),
+            honcho_patterns: Arc::new(RwLock::new(vec![])),
+            strategy: SlicingStrategy::default(),
+            slice_graph: Arc::new(RwLock::new(SliceGraph::new())),
+            rig_client,
         }
     }
 
@@ -220,6 +248,62 @@ impl YardmasterLoop {
             slices,
             recommended_mode,
         })
+    }
+
+    /// Decompose task using Rig structured extraction
+    #[cfg(feature = "rig")]
+    pub async fn decompose_task_rig(&self, task_id: &str, task_desc: &str) -> Result<TaskDecomposition> {
+        use serde::Serialize;
+        use schemars::JsonSchema;
+
+        #[derive(Debug, Serialize, Deserialize, JsonSchema)]
+        struct SliceSpec {
+            slice_id: String,
+            loop_type: String,
+            spec: String,
+            dependencies: Vec<String>,
+        }
+
+        #[derive(Debug, Serialize, Deserialize, JsonSchema)]
+        struct RigDecomposition {
+            slices: Vec<SliceSpec>,
+        }
+
+        if let Some(ref rig_client) = self.rig_client {
+            let extractor = rig_client.extractor::<RigDecomposition>(
+                "Decompose this task into E2E slices. Each slice should have a unique ID, loop type, specification, and list of dependency slice IDs."
+            ).map_err(|e| LoopError::Processing(e.to_string()))?;
+
+            let result = extractor.extract(task_desc).await
+                .map_err(|e| LoopError::Processing(e.to_string()))?;
+            
+            let slices: Vec<E2ESlice> = result.slices.into_iter().map(|spec| {
+                E2ESlice {
+                    slice_id: spec.slice_id,
+                    task_id: task_id.to_string(),
+                    loop_type: spec.loop_type,
+                    spec: spec.spec,
+                    dependencies: spec.dependencies,
+                    execution_mode: ExecutionMode::Pipeline,
+                }
+            }).collect();
+
+            let has_dependencies = slices.iter().any(|s| !s.dependencies.is_empty());
+            let recommended_mode = if has_dependencies {
+                ExecutionMode::Pipeline
+            } else {
+                ExecutionMode::Wave
+            };
+
+            Ok(TaskDecomposition {
+                task_id: task_id.to_string(),
+                slices,
+                recommended_mode,
+            })
+        } else {
+            // Fallback to standard decomposition if Rig not available
+            self.decompose_task(task_id, task_desc).await
+        }
     }
 
     /// Select execution mode based on slice graph

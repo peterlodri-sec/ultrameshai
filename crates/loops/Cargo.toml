@@ -16,6 +16,11 @@ loop-engineering-transport = { path = "../transport" }
 loop-engineering-node-registry = { path = "../node-registry" }
 milvus-brain = { path = "../milvus-brain" }
 honcho = { path = "../honcho" }
+rig-core = { version = "0.11", optional = true }
+schemars = { version = "0.8", optional = true }
+
+[features]
+rig = ["dep:rig-core", "dep:schemars", "loop-engineering-cognition/rig"]
 
 [dev-dependencies]
 tokio = { version = "1.38", features = ["full", "test-util"] }
