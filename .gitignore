@@ -1,0 +1,14 @@
+# Rust
+target/
+**/target/
+
+# Nix
+result
+result-*
+
+# Editor
+.DS_Store
+*.swp
+
+# Deepwork scratch
+.slim/deepwork/
