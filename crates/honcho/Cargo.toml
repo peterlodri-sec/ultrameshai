@@ -8,6 +8,7 @@ tokio = { version = "1.38", features = ["full"] }
 mempalace = { path = "../mempalace" }
 milvus-brain = { path = "../milvus-brain" }
 loop-engineering-transport = { path = "../transport" }
+loop-engineering-cognition = { path = "../cognition" }
 statrs = "0.17"
 ndarray = "0.15"
 serde_json = "1.0"
@@ -15,6 +16,8 @@ thiserror = "1.0"
 tracing = "0.1"
 uuid = { version = "1.6", features = ["v4"] }
 sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "sqlite"] }
+rig-core = { version = "0.11", optional = true }
+schemars = { version = "0.8", optional = true }
 
 [dev-dependencies]
 tokio = { version = "1.38", features = ["full", "test-util"] }
@@ -23,3 +26,4 @@ tempfile = "3.10"
 [features]
 default = []
 protobuf-generated = []
+rig = ["dep:rig-core", "dep:schemars", "loop-engineering-cognition/rig"]

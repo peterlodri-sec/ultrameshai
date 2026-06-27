@@ -1050,10 +1050,13 @@ dependencies = [
 name = "honcho"
 version = "0.1.0"
 dependencies = [
+ "loop-engineering-cognition",
  "loop-engineering-transport",
  "mempalace",
  "milvus-brain",
  "ndarray",
+ "rig-core",
+ "schemars 0.8.22",
  "serde_json",
  "sqlx",
  "statrs",

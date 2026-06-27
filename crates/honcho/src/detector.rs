@@ -4,17 +4,41 @@ use mempalace::UnitStats;
 use milvus_brain::ResearchFinding;
 use statrs::statistics::{Data, Distribution};
 use std::collections::{HashMap, HashSet};
+#[cfg(feature = "rig")]
+use loop_engineering_cognition::rig_client::RigClient;
 
 /// PatternDetector - detects patterns from mempalace + milvus data
-#[derive(Clone)]
 pub struct PatternDetector {
     confidence_threshold: f32,
+    #[cfg(feature = "rig")]
+    rig_client: Option<std::sync::Arc<RigClient>>,
+}
+
+impl Clone for PatternDetector {
+    fn clone(&self) -> Self {
+        Self {
+            confidence_threshold: self.confidence_threshold,
+            #[cfg(feature = "rig")]
+            rig_client: self.rig_client.clone(),
+        }
+    }
 }
 
 impl PatternDetector {
     pub fn new() -> Self {
         Self {
             confidence_threshold: 0.5,
+            #[cfg(feature = "rig")]
+            rig_client: None,
+        }
+    }
+
+    /// Create PatternDetector with Rig client enabled
+    #[cfg(feature = "rig")]
+    pub fn with_rig() -> Self {
+        Self {
+            confidence_threshold: 0.5,
+            rig_client: RigClient::from_env().ok().map(std::sync::Arc::new),
         }
     }
 
@@ -310,6 +334,62 @@ mod tests {
     fn test_detector_new() {
         let detector = PatternDetector::new();
         assert_eq!(detector.confidence_threshold, 0.5);
+    }
+
+    /// Detect patterns using Rig structured extraction
+    #[cfg(feature = "rig")]
+    pub fn detect_patterns_rig(&self, stats: &[UnitStats], findings: &[ResearchFinding]) -> Result<Vec<LearningPattern>> {
+        use serde::Serialize;
+        use schemars::JsonSchema;
+
+        #[derive(Debug, Serialize, Deserialize, JsonSchema)]
+        struct RigPattern {
+            pattern_type: String,
+            confidence: f32,
+            description: String,
+            affected_loops: Vec<String>,
+        }
+
+        #[derive(Debug, Serialize, Deserialize, JsonSchema)]
+        struct RigPatterns {
+            patterns: Vec<RigPattern>,
+        }
+
+        if let Some(ref rig_client) = self.rig_client {
+            // Serialize stats and findings to JSON for Rig
+            let stats_json = serde_json::to_string(stats)
+                .map_err(|e| crate::error::Error::Internal(e.to_string()))?;
+            let findings_json = serde_json::to_string(findings)
+                .map_err(|e| crate::error::Error::Internal(e.to_string()))?;
+
+            let input = format!(
+                "Unit stats: {}\n\nResearch findings: {}\n\nExtract learning patterns from this data.",
+                stats_json, findings_json
+            );
+
+            let extractor = rig_client.extractor::<RigPatterns>(
+                "Extract learning patterns from unit stats and research findings. Each pattern should have: pattern_type (performance/failure/success/cross-loop), confidence (0.0-1.0), description, and affected_loops list."
+            ).map_err(|e| crate::error::Error::Internal(e.to_string()))?;
+
+            let result = extractor.extract(&input).await
+                .map_err(|e| crate::error::Error::Internal(e.to_string()))?;
+
+            // Convert Rig patterns to LearningPattern
+            let patterns = result.patterns.into_iter()
+                .filter(|p| p.confidence >= self.confidence_threshold)
+                .map(|p| LearningPattern::new(
+                    &p.pattern_type,
+                    p.confidence,
+                    &p.description,
+                    p.affected_loops,
+                ))
+                .collect();
+
+            Ok(patterns)
+        } else {
+            // Fallback to standard detection
+            self.detect(stats.to_vec(), findings.to_vec())
+        }
     }
 
     #[test]
