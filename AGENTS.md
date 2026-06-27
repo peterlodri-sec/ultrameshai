@@ -1,21 +1,42 @@
 # AGENTS.md
 
-Loop-engineering agent stack. Multi-loop coding agent system targeting SWE-bench Verified ≥98%, then a Rust/Zig mesh app on cloud VMs + Raspberry Pis.
+Loop-engineering agent stack. Multi-loop coding agent system targeting SWE-bench Verified ≥98%, then Rust/Zig mesh app on cloud VMs + Raspberry Pis.
 
-## Architecture
+## Architecture (4 Layers)
 
-5 layers: Cognition, Orchestration, Transport, Execution, Memory. 10 loops (deepwork, bruteforce-coder, deep-research, testers, yardmaster, devops, UI, red-team, juniors, ralph). Decentralized scheduling over headscale/WireGuard mesh. Same-node IPC = pipelined protobuf over UDS.
+```
++-------------------------------------------------------------+
+| 1. COGNITION LAYER   (LLM Client, State, Prompting)         |
++-------------------------------------------------------------+
+                              │
+                              ▼
++-------------------------------------------------------------+
+| 2. ORCHESTRATION LAYER (Topology Mapping & Routing)         |
++-------------------------------------------------------------+
+                              │
+                              ▼
++-------------------------------------------------------------+
+| 3. TRANSPORT LAYER     (Headscale / WireGuard Mesh VPN)     |
++-------------------------------------------------------------+
+                              │
+                              ▼
++-------------------------------------------------------------+
+| 4. EXECUTION LAYER    (Target Node Daemon, Bun Runtimes)    |
++-------------------------------------------------------------+
+```
 
 Full design: `docs/superpowers/specs/2026-06-27-loop-engineering-agent-stack-design.md`
 Phase 0 plan: `docs/superpowers/plans/2026-06-27-phase0-substrate.md`
 
 ## Tech stack
 
-- Nix flakes for all reproducible environments — no imperative installs
-- Nushell as glue/scripting layer for unit lifecycle
-- Rust (tokio, prost) for performance-critical paths (transport, registry)
-- Protobuf as the single IPC message format (`proto/loop_engineering.proto`)
-- Headscale (or existing Tailscale) as mesh transport
+- Nix flakes — reproducible environments, no imperative installs
+- Nushell — glue/scripting for unit lifecycle
+- Rust (tokio, prost) — performance-critical paths (transport, registry)
+- Protobuf — single IPC message format (`proto/loop_engineering.proto`)
+- Headscale (or Tailscale) — mesh transport
+
+Free LLM options: OpenRouter, OpenCode Go/Zen, Alibaba Qwen 3.6 / 3.7.
 
 ## Commands
 
@@ -26,7 +47,6 @@ nix flake check                                          # verify flake evaluate
 nix develop .#agent-unit --command nu -c "version"        # enter standard shell
 nix build .#agent-unit --no-link                         # warm shell cache (required before bench)
 cargo test --manifest-path crates/transport/Cargo.toml   # transport crate tests
-cargo test --manifest-path crates/node-registry/Cargo.toml # registry crate tests
 ```
 
 ## Layout
@@ -35,10 +55,12 @@ cargo test --manifest-path crates/node-registry/Cargo.toml # registry crate test
 flake.nix              # devShells: agent-unit (standard), -test, -red-team, -devops; protobuf-gen
 nix/                   # agent-unit.nix (shell tiers), protobuf.nix (codegen derivation)
 proto/                 # loop_engineering.proto — single typed contract across components
-crates/transport/      # framed protobuf over UDS (length-delimited, 4MB max, pipelined)
-crates/node-registry/  # mesh node capacity store + UDP multicast heartbeat
-scripts/               # nushell: unit-harness.nu, spawn-bench.nu, integration tests
-docs/                  # headscale setup, specs, plans
+crates/
+  transport/           # framed protobuf over UDS (working)
+  node-registry/       # mesh node capacity store (NOT YET CREATED)
+  agent-core/          # Layer 1: LLM client, session, prompts, tool dispatch (NOT YET CREATED)
+scripts/               # nushell harness (NOT YET CREATED)
+docs/superpowers/      # specs, plans
 ```
 
 ## Constraints
@@ -46,7 +68,7 @@ docs/                  # headscale setup, specs, plans
 - Target hardware: cloud VMs (64GB) + Raspberry Pi (4GB). Test on both.
 - Memory cap per agent unit: 100MB soft, 150MB elastic, snapshot+kill at >160MB.
 - Protobuf messages max 4MB (framed transport).
-- macOS hosts cannot run `nix flake check` or `nix develop` against Linux shells — verify on target Linux nodes.
+- macOS hosts cannot run `nix flake check` or `nix develop` — verify on target Linux nodes.
 
 ## Conventions
 
