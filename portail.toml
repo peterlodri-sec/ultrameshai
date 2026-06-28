@@ -1,0 +1,22 @@
+# Portail config — /Users/lodripeter/workspace/peterlodri-sec/ultrameshai/portail.toml
+listen = "0.0.0.0:8787"
+mcp_socket = "/Users/lodripeter/workspace/peterlodri-sec/ultrameshai/.portail_mcp.sock"
+cache_dir = "/Users/lodripeter/workspace/peterlodri-sec/ultrameshai/.portail_cache"
+cache_size = "10g"
+
+[ai_gateway]
+enabled = true
+default_provider = "ovhcloud"
+
+[[targets]]
+name = "ovhcloud"
+provider = "openai"
+base_url = "https://oai.endpoints.kepler.ai.cloud.ovh.net"
+api_key = "$OVHCLOUD_AI_API_KEY"
+models = [
+  "Qwen3.5-397B-A17B",
+  "Meta-Llama-3_3-70B-Instruct",
+  "Qwen3.5-9B",
+  "Qwen3.6-27B",
+  "Qwen3-Coder-30B-A3B-Instruct"
+]

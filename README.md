@@ -4,6 +4,28 @@ Loop-Engineering Agent Stack substrate for high-performance, decentralized capab
 
 ---
 
+### 👶 Explain Like I'm 5 (ELI5)
+
+Imagine you have a team of AI friends (agents) living on different computers (like big cloud servers and tiny Raspberry Pis). **UltrameshAI** is the **nervous system** that connects them:
+1. **It knows who is best at what:** If one agent is great at writing code and another is great at searching the web, it routes your question to the right agent (**Cognition & Orchestration**).
+2. **It talks super fast:** It lets them send messages to each other instantly (**Transport**).
+3. **It keeps them in line:** It watches over them so they don't hog too much memory or crash your computer (**Execution**).
+
+---
+
+### 🧠 What is `kompress-ultra`?
+
+When you talk to an AI for a long time, the chat history gets huge. This makes the AI slow, expensive to run, and it starts forgetting things. **`kompress-ultra`** is the **smart memory-manager** that solves this:
+
+* **WHAT:** A smart filter that shrinks the chat history so the AI only reads what is absolutely necessary.
+* **HOW:** 
+  1. **It squeezes sentences:** It removes filler words, turning *"I would be happy to help you write the code for authentication"* into *"write authentication code"* (**Rewriter**).
+  2. **It throws away the clutter:** It deletes low-value messages but always keeps a "safety floor" (like code blocks, errors, and the last 5 messages) so nothing important is lost (**Pruner**).
+  3. **It files old memories away:** Anything it deletes is saved into a long-term database (Milvus/MemPalace) so the AI can search and recall it later (**Circulator**).
+* **WHY:** To keep the agents running **fast, cheap, and smart**—especially on resource-constrained hardware like a Raspberry Pi!
+
+---
+
 ## 🏗️ 4-Layer Architecture
 
 ```
