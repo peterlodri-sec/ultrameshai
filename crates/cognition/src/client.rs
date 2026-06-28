@@ -1,6 +1,6 @@
 use crate::error::{CognitionError, Result};
 use serde::{Deserialize, Serialize};
-use std::sync::Mutex;
+use tokio::sync::Mutex;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -76,8 +76,8 @@ impl LlmClient {
         }
     }
 
-    fn get_inner(&self) -> Result<std::sync::MutexGuard<'_, Option<agent_core::client::LlmClient>>> {
-        let mut guard = self.inner.lock().map_err(|e| CognitionError::LlmApi(format!("Lock poisoned: {}", e)))?;
+    async fn get_inner(&self) -> Result<tokio::sync::MutexGuard<'_, Option<agent_core::client::LlmClient>>> {
+        let mut guard = self.inner.lock().await;
         if guard.is_none() {
             let api_key = self.api_key.as_deref().unwrap_or("");
             let base_url = self.base_url.as_deref().unwrap_or("https://dashscope.aliyuncs.com/api/v1");
@@ -105,9 +105,6 @@ impl LlmClient {
             });
         }
 
-        let guard = self.get_inner()?;
-        let core_client = guard.as_ref().unwrap();
-
         let core_messages: Vec<(String, String)> = messages
             .iter()
             .map(|m| (m.role.as_str().to_string(), m.content.clone()))
@@ -118,8 +115,13 @@ impl LlmClient {
             .map(|(r, c)| (r.as_str(), c.as_str()))
             .collect();
 
-        let response = core_client.chat(&refs).await
-            .map_err(|e| CognitionError::LlmApi(e.to_string()))?;
+        // Hold lock only for the chat call, not across await
+        let response = {
+            let guard = self.get_inner().await?;
+            let core_client = guard.as_ref().unwrap();
+            core_client.chat(&refs).await
+                .map_err(|e| CognitionError::LlmApi(e.to_string()))?
+        };
 
         Ok(ChatResponse {
             content: response,

@@ -1,0 +1,72 @@
+{
+  "featureName": "Loop Engineering E2E Test",
+  "branchName": "feature/ralph-e2e-test",
+  "userStories": [
+    {
+      "id": "US-001",
+      "title": "Add deepwork loop integration",
+      "description": "Ensure deepwork loop calls LLM and returns response",
+      "loopType": "deepwork",
+      "acceptanceCriteria": [
+        "cargo check passes",
+        "cargo test passes",
+        "deepwork loop returns non-empty response"
+      ],
+      "passes": false,
+      "branchName": "feature/deepwork-integration",
+      "priority": 10
+    },
+    {
+      "id": "US-002",
+      "title": "Add bruteforce-coder loop integration",
+      "description": "Ensure bruteforce-coder loop calls LLM and returns response",
+      "loopType": "bruteforce-coder",
+      "acceptanceCriteria": [
+        "cargo check passes",
+        "cargo test passes"
+      ],
+      "passes": false,
+      "branchName": "feature/bruteforce-integration",
+      "priority": 9
+    },
+    {
+      "id": "US-003",
+      "title": "Add testers loop integration",
+      "description": "Ensure testers loop calls LLM and returns response",
+      "loopType": "testers",
+      "acceptanceCriteria": [
+        "cargo check passes",
+        "cargo test passes"
+      ],
+      "passes": false,
+      "branchName": "feature/testers-integration",
+      "priority": 8
+    },
+    {
+      "id": "US-004",
+      "title": "Add devops loop integration",
+      "description": "Ensure devops loop calls LLM and returns response",
+      "loopType": "devops",
+      "acceptanceCriteria": [
+        "cargo check passes",
+        "cargo test passes"
+      ],
+      "passes": false,
+      "branchName": "feature/devops-integration",
+      "priority": 7
+    },
+    {
+      "id": "US-005",
+      "title": "Add ralph loop integration",
+      "description": "Ensure ralph loop calls LLM and returns response",
+      "loopType": "ralph",
+      "acceptanceCriteria": [
+        "cargo check passes",
+        "cargo test passes"
+      ],
+      "passes": false,
+      "branchName": "feature/ralph-integration",
+      "priority": 6
+    }
+  ]
+}

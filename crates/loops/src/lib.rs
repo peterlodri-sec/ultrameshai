@@ -1,3 +1,5 @@
+pub mod error;
+pub mod domain;
 pub mod traits;
 pub mod actor;
 mod deepwork;
@@ -11,7 +13,6 @@ mod red_team;
 pub mod juniors;
 mod ralph;
 
-pub use traits::{Loop, LoopInput, LoopOutput, LoopStats, LoopError, Result};
 pub use actor::{AgentActor, ActorHandle, ActorMessage, ActorState, Supervisor, SharedSupervisor, new_shared_supervisor};
 pub use deepwork::DeepworkLoop;
 pub use bruteforce_coder::BruteforceCoderLoop;
@@ -23,3 +24,6 @@ pub use ui::UiLoop;
 pub use red_team::RedTeamLoop;
 pub use juniors::JuniorsLoop;
 pub use ralph::RalphLoop;
+pub use error::{LoopError, Result};
+pub use domain::{MotivationSummary, RewardSummary, MotivationTier};
+pub use traits::{Loop, LoopInput, LoopOutput, LoopStats};

@@ -1,4 +1,4 @@
-import { compressMessage, CompressionLevel } from "./rewriter";
+import { compressMessage, CompressionLevel } from "./rewriter.js";
 
 export interface CoProcessorOptions {
   model?: string;

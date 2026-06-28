@@ -1,0 +1,419 @@
+{
+  "version": "0.1.0",
+  "updated": "2026-06-28",
+  "loops": {
+    "deepwork": {
+      "tier": "validated",
+      "model": "FRONTIER",
+      "category": "original-10",
+      "tested": true,
+      "ecL": "2026-06-28-original10-e2e"
+    },
+    "bruteforce-coder": {
+      "tier": "validated",
+      "model": "CODE_BEST",
+      "category": "original-10",
+      "tested": true,
+      "ecL": "2026-06-28-original10-e2e"
+    },
+    "deep-research": {
+      "tier": "validated",
+      "model": "FRONTIER",
+      "category": "original-10",
+      "tested": true,
+      "ecL": "2026-06-28-original10-e2e"
+    },
+    "testers": {
+      "tier": "validated",
+      "model": "CODE_MID",
+      "category": "original-10",
+      "tested": true,
+      "ecL": "2026-06-28-original10-e2e"
+    },
+    "yardmaster": {
+      "tier": "validated",
+      "model": "FRONTIER",
+      "category": "original-10",
+      "tested": true,
+      "ecL": "2026-06-28-original10-e2e"
+    },
+    "devops": {
+      "tier": "validated",
+      "model": "CODE_MID",
+      "category": "original-10",
+      "tested": true,
+      "ecL": "2026-06-28-original10-e2e"
+    },
+    "ui": {
+      "tier": "validated",
+      "model": "FRONTIER",
+      "category": "original-10",
+      "tested": true,
+      "ecL": "2026-06-28-original10-e2e"
+    },
+    "red-team": {
+      "tier": "validated",
+      "model": "CODE_BEST",
+      "category": "original-10",
+      "tested": true,
+      "ecL": "2026-06-28-original10-e2e"
+    },
+    "juniors": {
+      "tier": "validated",
+      "model": "CODE_SMALL",
+      "category": "original-10",
+      "tested": true,
+      "ecL": "2026-06-28-original10-e2e"
+    },
+    "ralph": {
+      "tier": "validated",
+      "model": "GEN_TINY",
+      "category": "original-10",
+      "tested": true,
+      "ecL": "2026-06-28-original10-e2e"
+    },
+    "coder-planner": {
+      "tier": "guided",
+      "model": "FRONTIER",
+      "category": "coder-sub-loops",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "coder-editor": {
+      "tier": "guided",
+      "model": "CODE_BEST",
+      "category": "coder-sub-loops",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "coder-reviewer": {
+      "tier": "guided",
+      "model": "CODE_BEST",
+      "category": "coder-sub-loops",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "deepwork-decomposer": {
+      "tier": "guided",
+      "model": "FRONTIER",
+      "category": "deepwork-sub-loops",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "deepwork-verifier": {
+      "tier": "guided",
+      "model": "REASONING",
+      "category": "deepwork-sub-loops",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "redteam-fuzzer": {
+      "tier": "guided",
+      "model": "CODE_BEST",
+      "category": "redteam-sub-loops",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "redteam-analyzer": {
+      "tier": "guided",
+      "model": "REASONING",
+      "category": "redteam-sub-loops",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "librarian": {
+      "tier": "experimental",
+      "model": "FRONTIER",
+      "category": "research",
+      "tested": false,
+      "ecL": null
+    },
+    "issue-analyzer": {
+      "tier": "guided",
+      "model": "FRONTIER",
+      "category": "swe-bench",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "codebase-explorer": {
+      "tier": "guided",
+      "model": "CODE_BEST",
+      "category": "swe-bench",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "fix-planner": {
+      "tier": "guided",
+      "model": "REASONING",
+      "category": "swe-bench",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "fix-implementer": {
+      "tier": "guided",
+      "model": "CODE_BEST",
+      "category": "swe-bench",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "edge-case-analyzer": {
+      "tier": "guided",
+      "model": "FRONTIER",
+      "category": "swe-bench",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "regression-checker": {
+      "tier": "guided",
+      "model": "CODE_MID",
+      "category": "swe-bench",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "diff-builder": {
+      "tier": "guided",
+      "model": "CODE_SPEC",
+      "category": "swe-bench",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "tester-unit": {
+      "tier": "guided",
+      "model": "CODE_SMALL",
+      "category": "testing",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "tester-integration": {
+      "tier": "guided",
+      "model": "CODE_MID",
+      "category": "testing",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "tester-benchmark": {
+      "tier": "guided",
+      "model": "CODE_SMALL",
+      "category": "testing",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "tester-property": {
+      "tier": "guided",
+      "model": "CODE_MID",
+      "category": "testing",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "tester-mutation": {
+      "tier": "guided",
+      "model": "CODE_BEST",
+      "category": "testing",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "devops-build": {
+      "tier": "guided",
+      "model": "CODE_SMALL",
+      "category": "devops",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "devops-package": {
+      "tier": "guided",
+      "model": "CODE_SMALL",
+      "category": "devops",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "devops-deploy": {
+      "tier": "guided",
+      "model": "CODE_SMALL",
+      "category": "devops",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "devops-cache": {
+      "tier": "guided",
+      "model": "GEN_SMALL",
+      "category": "devops",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "quality-lint": {
+      "tier": "guided",
+      "model": "CODE_SMALL",
+      "category": "quality",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "quality-audit": {
+      "tier": "guided",
+      "model": "CODE_MID",
+      "category": "quality",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "quality-coverage": {
+      "tier": "guided",
+      "model": "CODE_SMALL",
+      "category": "quality",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "quality-typecheck": {
+      "tier": "guided",
+      "model": "CODE_SMALL",
+      "category": "quality",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "quality-style": {
+      "tier": "guided",
+      "model": "CODE_SMALL",
+      "category": "quality",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "memory-indexer": {
+      "tier": "guided",
+      "model": "GEN_SMALL",
+      "category": "memory",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "memory-pattern-miner": {
+      "tier": "guided",
+      "model": "REASONING",
+      "category": "memory",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "memory-summarizer": {
+      "tier": "guided",
+      "model": "GEN_SMALL",
+      "category": "memory",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "ralph-coder": {
+      "tier": "guided",
+      "model": "GEN_TINY",
+      "category": "ralph-expanded",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "ralph-research": {
+      "tier": "guided",
+      "model": "GEN_TINY",
+      "category": "ralph-expanded",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "ralph-meta": {
+      "tier": "guided",
+      "model": "FRONTIER",
+      "category": "ralph-expanded",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "infra-provisioner": {
+      "tier": "experimental",
+      "model": "GEN_SMALL",
+      "category": "infra",
+      "tested": false,
+      "ecL": null
+    },
+    "infra-monitor": {
+      "tier": "experimental",
+      "model": "GEN_SMALL",
+      "category": "infra",
+      "tested": false,
+      "ecL": null
+    },
+    "infra-balancer": {
+      "tier": "experimental",
+      "model": "GEN_MID",
+      "category": "infra",
+      "tested": false,
+      "ecL": null
+    },
+    "reporter": {
+      "tier": "experimental",
+      "model": "FRONTIER",
+      "category": "utility",
+      "tested": false,
+      "ecL": null
+    },
+    "validator": {
+      "tier": "experimental",
+      "model": "REASONING",
+      "category": "utility",
+      "tested": false,
+      "ecL": null
+    },
+    "notebook": {
+      "tier": "experimental",
+      "model": "CODE_MID",
+      "category": "utility",
+      "tested": false,
+      "ecL": null
+    },
+    "math-solver": {
+      "tier": "experimental",
+      "model": "MATH",
+      "category": "math",
+      "tested": false,
+      "ecL": null
+    },
+    "math-verify": {
+      "tier": "experimental",
+      "model": "MATH",
+      "category": "math",
+      "tested": false,
+      "ecL": null
+    },
+    "research-web": {
+      "tier": "guided",
+      "model": "FRONTIER",
+      "category": "research",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "research-docs": {
+      "tier": "guided",
+      "model": "GEN_LARGE",
+      "category": "research",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    },
+    "research-patterns": {
+      "tier": "guided",
+      "model": "REASONING",
+      "category": "research",
+      "tested": true,
+      "ecL": "2026-06-28-loop-logic-implementation"
+    }
+  },
+  "tiers": {
+    "validated": "Production-tested with ECL archive, all tests passing",
+    "guided": "Compiles + tests pass, not yet production-validated",
+    "experimental": "Skeleton implementation or untested"
+  },
+  "categories": [
+    "original-10",
+    "coder-sub-loops",
+    "deepwork-sub-loops",
+    "redteam-sub-loops",
+    "swe-bench",
+    "testing",
+    "devops",
+    "quality",
+    "memory",
+    "ralph-expanded",
+    "infra",
+    "utility",
+    "math",
+    "research"
+  ]
+}

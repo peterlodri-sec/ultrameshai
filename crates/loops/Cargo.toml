@@ -11,11 +11,13 @@ thiserror = "1.0"
 tracing = "0.1"
 async-trait = "0.1"
 futures-util = "0.3"
+uuid = { version = "1.0", features = ["v4"] }
 loop-engineering-cognition = { path = "../cognition" }
 loop-engineering-transport = { path = "../transport" }
 loop-engineering-node-registry = { path = "../node-registry" }
 milvus-brain = { path = "../milvus-brain" }
 honcho = { path = "../honcho" }
+memory-mesh = { path = "../memory-mesh" }
 rig-core = { version = "0.11", optional = true }
 schemars = { version = "0.8", optional = true }
 

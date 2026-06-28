@@ -1,4 +1,5 @@
-use crate::traits::{Loop, LoopInput, LoopOutput, LoopStats, Result};
+use crate::traits::{Loop, LoopInput, LoopOutput, LoopStats};
+use crate::error::{Result};
 
 pub struct DevopsLoop {
     stats: LoopStats,
@@ -32,6 +33,8 @@ impl Loop for DevopsLoop {
             result: input.task_desc,
             tool_calls: vec![],
             stats: self.stats.clone(),
+            reward_earned: None,
+            a2a_completed: false,
         })
     }
 

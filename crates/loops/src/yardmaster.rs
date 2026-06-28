@@ -1,4 +1,6 @@
-use crate::traits::{Loop, LoopInput, LoopOutput, LoopStats, Result, LoopError};
+use crate::traits::{Loop, LoopInput, LoopOutput, LoopStats};
+use crate::error::{LoopError};
+use crate::error::{Result};
 use honcho::LearningPattern;
 use loop_engineering_cognition::{LlmClient, Session, PromptDispatcher, ModelRouter};
 #[cfg(feature = "rig")]
@@ -272,10 +274,10 @@ impl YardmasterLoop {
         if let Some(ref rig_client) = self.rig_client {
             let extractor = rig_client.extractor::<RigDecomposition>(
                 "Decompose this task into E2E slices. Each slice should have a unique ID, loop type, specification, and list of dependency slice IDs."
-            ).map_err(|e| LoopError::Processing(e.to_string()))?;
+            ).map_err(|e| LoopError::StateViolation(e.to_string()))?;
 
             let result = extractor.extract(task_desc).await
-                .map_err(|e| LoopError::Processing(e.to_string()))?;
+                .map_err(|e| LoopError::StateViolation(e.to_string()))?;
             
             let slices: Vec<E2ESlice> = result.slices.into_iter().map(|spec| {
                 E2ESlice {
@@ -464,6 +466,8 @@ impl Loop for YardmasterLoop {
             result: prompt,
             tool_calls: vec![],
             stats: self.stats.clone(),
+            reward_earned: None,
+            a2a_completed: false,
         })
     }
 

@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use crate::domain::{MotivationSummary, RewardSummary};
+use crate::error::{LoopError, Result};
 
 /// Input to a loop processing cycle
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -7,6 +9,7 @@ pub struct LoopInput {
     pub slice_id: String,
     pub task_desc: String,
     pub context: Vec<String>,
+    pub motivation: Option<MotivationSummary>,
 }
 
 /// Output from a loop processing cycle
@@ -16,6 +19,8 @@ pub struct LoopOutput {
     pub result: String,
     pub tool_calls: Vec<String>,
     pub stats: LoopStats,
+    pub reward_earned: Option<RewardSummary>,
+    pub a2a_completed: bool,
 }
 
 /// Statistics for a loop instance
@@ -26,18 +31,7 @@ pub struct LoopStats {
     pub peak_memory_mb: u32,
 }
 
-/// Error types for loop processing
-#[derive(Debug, thiserror::Error)]
-pub enum LoopError {
-    #[error("Processing error: {0}")]
-    Processing(String),
-    #[error("LLM error: {0}")]
-    Llm(String),
-    #[error("Transport error: {0}")]
-    Transport(String),
-}
 
-pub type Result<T> = std::result::Result<T, LoopError>;
 
 /// Main Loop trait - all loop types implement this
 #[async_trait::async_trait]

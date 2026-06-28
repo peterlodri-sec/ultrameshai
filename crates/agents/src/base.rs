@@ -85,7 +85,7 @@ pub enum AgentError {
     
     /// Error propagated from the underlying loop runtime.
     #[error("Loop error: {0}")]
-    Loop(#[from] loop_engineering_loops::traits::LoopError),
+    Loop(#[from] loop_engineering_loops::LoopError),
 }
 
 

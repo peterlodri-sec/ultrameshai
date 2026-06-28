@@ -1,6 +1,6 @@
 // kompress-ultra: 4-role living context layer (Composer, Pruner, Rewriter, Circulator)
 import type { Plugin, PluginInput } from "@opencode-ai/plugin";
-import { compressMessage, CompressionLevel } from "./rewriter";
+import { compressMessage, CompressionLevel } from "./rewriter.js";
 
 export interface KompressUltraOptions {
   relevanceThreshold?: number;
@@ -19,7 +19,7 @@ export interface KompressUltraOptions {
 
 const DEFAULT_OPTIONS: Required<KompressUltraOptions> = {
   relevanceThreshold: 0.65,
-  maxMessagesKept: 50,
+  maxMessagesKept: 35,
   milvusUrl: "http://localhost:19530",
   mempalaceDb: "mempalace.db",
   pollIntervalMs: 60000,
@@ -402,10 +402,10 @@ interface AgentTokenBudget {
 }
 
 const DEFAULT_BUDGETS: Record<string, AgentTokenBudget> = {
-  coder: { max_context_tokens: 100_000, compression_aggressiveness: 0.8, brain_injection_budget: 500 },
-  researcher: { max_context_tokens: 128_000, compression_aggressiveness: 0.4, brain_injection_budget: 1000 },
-  reviewer: { max_context_tokens: 64_000, compression_aggressiveness: 0.6, brain_injection_budget: 500 },
-  orchestrator: { max_context_tokens: 128_000, compression_aggressiveness: 0.5, brain_injection_budget: 800 },
+  coder: { agent_type: "coder", max_context_tokens: 100_000, compression_aggressiveness: 0.8, brain_injection_budget: 500 },
+  researcher: { agent_type: "researcher", max_context_tokens: 128_000, compression_aggressiveness: 0.4, brain_injection_budget: 1000 },
+  reviewer: { agent_type: "reviewer", max_context_tokens: 64_000, compression_aggressiveness: 0.6, brain_injection_budget: 500 },
+  orchestrator: { agent_type: "orchestrator", max_context_tokens: 128_000, compression_aggressiveness: 0.5, brain_injection_budget: 800 },
 };
 
 function escalateForBudget(
@@ -534,6 +534,8 @@ const state = {
   contextSizeHistory: [] as number[],
   cachedPatterns: [] as string[],
   lastPatternFetch: 0,
+  lastStatusBannerAt: 0,
+  bannerInterval: null as ReturnType<typeof setInterval> | null,
 };
 
 export default (
@@ -541,6 +543,34 @@ export default (
   options?: KompressUltraOptions,
 ) => {
   const mergedOpts = { ...DEFAULT_OPTIONS, ...options };
+
+  // ─── Periodic Status Banner ───────────────────────────────────────────────
+  const BANNER_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+
+  if (state.bannerInterval) clearInterval(state.bannerInterval);
+  state.lastStatusBannerAt = Date.now();
+  state.bannerInterval = setInterval(async () => {
+    const now = Date.now();
+    if (now - state.lastStatusBannerAt < BANNER_INTERVAL_MS) return;
+    state.lastStatusBannerAt = now;
+
+    const brainState = await readBrainState();
+    const brainLine = brainState ? buildBrainLine(brainState) : "❓ BRAIN UNKNOWN";
+    const historyLen = state.contextSizeHistory.length;
+    const avgSize = historyLen > 0
+      ? Math.round(state.contextSizeHistory.reduce((a, b) => a + b, 0) / historyLen)
+      : 0;
+
+    const lines = [
+      "─── kompress status ───",
+      brainLine,
+      `patterns cached: ${state.cachedPatterns.length}`,
+      `context history: ${historyLen} snapshots, avg ${avgSize} msg`,
+      `circuit breaker: ${isCircuitOpen() ? "OPEN" : "closed"}`,
+      "───────────────────────",
+    ];
+    console.log(lines.join("\n"));
+  }, BANNER_INTERVAL_MS);
 
   return {
     // ─── messages.transform: Pruner + Rewriter + Circulator ─────────────────
@@ -559,10 +589,10 @@ export default (
 
       // PRUNER: Score all messages
       const scored = await Promise.all(
-        messages.map((msg, idx) => ({
+        messages.map(async (msg, idx) => ({
           msg,
           idx,
-          score: scoreMessage(msg, idx, messages.length, ctx.taskGoal),
+          score: await scoreMessage(msg, idx, messages.length, ctx.taskGoal),
         })),
       );
 
@@ -619,7 +649,7 @@ export default (
             : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
           enqueueCirculator({
             session_id: (ctx as Record<string, unknown>).session_id as string || "unknown",
-            agent_type,
+            agent_type: agentType,
             message_role: msg.role,
             content_hash: contentHash,
             classification: classifyMessage(msg.content),

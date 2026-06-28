@@ -11,6 +11,7 @@ members = [
     "crates/honcho",
     "crates/agent-core",
     "crates/orchestrator",
+    "crates/memory-mesh",
 ]
 
 [workspace.dependencies]

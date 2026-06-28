@@ -3,7 +3,8 @@
 //! Provides a lightweight Actor pattern using Tokio channels for clean
 //! supervisor-worker lifecycles with graceful cancellation and resource tracking.
 
-use crate::traits::{Loop, LoopInput, LoopOutput, LoopStats, LoopError, Result};
+use crate::traits::{Loop, LoopInput, LoopOutput, LoopStats};
+use crate::error::{LoopError, Result};
 use tokio::sync::{mpsc, oneshot};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -146,10 +147,10 @@ impl ActorHandle {
         self.tx
             .send(ActorMessage::Process { input, respond_to })
             .await
-            .map_err(|_| LoopError::Processing("Actor channel closed".into()))?;
+            .map_err(|_| LoopError::StateViolation("Actor channel closed".into()))?;
         
         rx.await
-            .map_err(|_| LoopError::Processing("Actor response channel closed".into()))?
+            .map_err(|_| LoopError::StateViolation("Actor response channel closed".into()))?
     }
 
     /// Get current statistics
@@ -159,10 +160,10 @@ impl ActorHandle {
         self.tx
             .send(ActorMessage::Stats { respond_to })
             .await
-            .map_err(|_| LoopError::Processing("Actor channel closed".into()))?;
+            .map_err(|_| LoopError::StateViolation("Actor channel closed".into()))?;
         
         rx.await
-            .map_err(|_| LoopError::Processing("Actor response channel closed".into()))
+            .map_err(|_| LoopError::StateViolation("Actor response channel closed".into()))
     }
 
     /// Send shutdown signal
@@ -170,7 +171,7 @@ impl ActorHandle {
         self.tx
             .send(ActorMessage::Shutdown)
             .await
-            .map_err(|_| LoopError::Processing("Actor channel closed".into()))
+            .map_err(|_| LoopError::StateViolation("Actor channel closed".into()))
     }
 }
 

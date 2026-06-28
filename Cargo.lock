@@ -1674,6 +1674,7 @@ dependencies = [
  "serde_json",
  "thiserror 1.0.69",
  "tokio",
+ "toml",
  "tracing",
 ]
 
@@ -1687,6 +1688,7 @@ dependencies = [
  "loop-engineering-cognition",
  "loop-engineering-node-registry",
  "loop-engineering-transport",
+ "memory-mesh",
  "milvus-brain",
  "rig-core",
  "schemars 0.8.22",
@@ -1695,6 +1697,7 @@ dependencies = [
  "thiserror 1.0.69",
  "tokio",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -1727,6 +1730,7 @@ name = "loop-engineering-orchestrator"
 version = "0.1.0"
 dependencies = [
  "arc-swap",
+ "loop-engineering-loops",
  "loop-engineering-node-registry",
  "notify",
  "rig-core",
@@ -1808,6 +1812,20 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d1219ed1b7f229ee7104d281dd01d6802fe28bb6e95d292942c4daacdeb798c0"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "memory-mesh"
+version = "0.1.0"
+dependencies = [
+ "chrono",
+ "rand 0.9.4",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "uuid",
 ]
 
 [[package]]

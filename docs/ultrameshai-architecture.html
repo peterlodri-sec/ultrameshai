@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UltraMeshAI — Loop Engineering Architecture</title>
+  <style>
+    :root {
+      --background: oklch(0.97 0.005 260);
+      --foreground: oklch(0.18 0.02 260);
+      --card: oklch(1 0 0);
+      --card-foreground: oklch(0.18 0.02 260);
+      --primary: oklch(0.50 0.25 280);
+      --primary-foreground: oklch(1 0 0);
+      --secondary: oklch(0.50 0.18 180);
+      --muted: oklch(0.92 0.01 260);
+      --muted-foreground: oklch(0.40 0.02 260);
+      --accent: oklch(0.60 0.22 50);
+      --success: oklch(0.45 0.20 150);
+      --warning: oklch(0.55 0.18 85);
+      --destructive: oklch(0.50 0.25 25);
+      --border: oklch(0.88 0.01 260);
+      --code-bg: oklch(0.92 0.01 260);
+      --ring: oklch(0.50 0.25 280);
+      --radius: 0.625rem;
+      --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
+      --font-display: ui-serif, Georgia, 'Times New Roman', serif;
+    }
+
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: var(--font-sans);
+      background: var(--background);
+      color: var(--foreground);
+      line-height: 1.65;
+      font-size: 15px;
+      -webkit-font-smoothing: antialiased;
+    }
+    .container { max-width: 1080px; margin: 0 auto; padding: 64px 24px; }
+
+    /* Header */
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted-foreground);
+    }
+    header h1 {
+      font-family: var(--font-display);
+      font-size: 2rem;
+      font-weight: 500;
+      margin: 8px 0 24px;
+      line-height: 1.2;
+    }
+    .prompt-box {
+      background: var(--muted);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 24px;
+    }
+    .prompt-label {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted-foreground);
+      display: block;
+      margin-bottom: 4px;
+    }
+    .prompt-box p {
+      font-size: 0.92rem;
+      color: var(--muted-foreground);
+      line-height: 1.55;
+    }
+
+    /* Summary strip */
+    .summary-strip {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 16px;
+      margin: 32px 0;
+    }
+    .stat-card {
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 24px;
+      text-align: center;
+      background: var(--card);
+    }
+    .stat-value {
+      font-family: var(--font-display);
+      font-size: 1.8rem;
+      font-weight: 500;
+      display: block;
+      color: var(--foreground);
+    }
+    .stat-label {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted-foreground);
+      margin-top: 4px;
+      display: block;
+    }
+
+    /* Sections */
+    section { margin-top: 64px; }
+    .section-header {
+      display: flex;
+      align-items: baseline;
+      gap: 16px;
+      margin-bottom: 24px;
+      padding-bottom: 8px;
+      border-bottom: 1.5px solid var(--border);
+    }
+    .section-number {
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--primary);
+    }
+    .section-header h2 {
+      font-family: var(--font-display);
+      font-size: 1.4rem;
+      font-weight: 500;
+    }
+
+    /* Diagram panel */
+    .diagram-panel {
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin: 24px 0;
+      background: var(--card);
+    }
+    .diagram-caption {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: var(--muted-foreground);
+      display: block;
+      margin-top: 8px;
+      text-align: center;
+    }
+
+    /* Tier grid */
+    .tier-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin: 24px 0;
+    }
+    .tier-card {
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      background: var(--card);
+    }
+    .tier-name {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--primary);
+      margin-bottom: 8px;
+    }
+    .tier-model {
+      font-size: 0.85rem;
+      color: var(--foreground);
+      word-break: break-all;
+    }
+
+    /* Loop categories */
+    .category-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+      margin: 24px 0;
+    }
+    .category-card {
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      background: var(--card);
+    }
+    .category-title {
+      font-family: var(--font-display);
+      font-size: 1.1rem;
+      font-weight: 500;
+      margin-bottom: 12px;
+      color: var(--foreground);
+    }
+    .loop-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .loop-chip {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      padding: 3px 8px;
+      border-radius: calc(var(--radius) - 4px);
+      background: var(--muted);
+      color: var(--muted-foreground);
+    }
+    .loop-chip.highlight {
+      background: color-mix(in oklab, var(--primary) 12%, transparent);
+      color: var(--primary);
+    }
+
+    /* Code panel */
+    .code-panel {
+      background: var(--code-bg);
+      border-radius: var(--radius);
+      padding: 24px;
+      overflow-x: auto;
+      margin: 16px 0;
+      border: 1.5px solid var(--border);
+    }
+    .code-label {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--muted-foreground);
+      display: block;
+      margin-bottom: 8px;
+    }
+    .code-panel pre {
+      margin: 0;
+      font-family: var(--font-mono);
+      font-size: 0.85rem;
+      line-height: 1.55;
+      color: var(--foreground);
+    }
+    .kw { color: var(--primary); }
+    .fn { color: var(--accent); }
+    .str { color: var(--success); }
+    .cm { color: var(--muted-foreground); font-style: italic; }
+
+    /* Layer boxes in SVG */
+    .layer-cognition { fill: oklch(0.95 0.01 280); stroke: var(--primary); stroke-width: 2; }
+    .layer-orchestration { fill: oklch(0.95 0.01 180); stroke: var(--secondary); stroke-width: 2; }
+    .layer-transport { fill: oklch(0.95 0.01 220); stroke: oklch(0.50 0.18 220); stroke-width: 2; }
+    .layer-execution { fill: oklch(0.95 0.01 50); stroke: var(--accent); stroke-width: 2; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <span class="eyebrow">Architecture Overview · UltraMeshAI</span>
+      <h1>Loop Engineering Agent Stack</h1>
+      <div class="prompt-box">
+        <span class="prompt-label">System</span>
+        <p>Multi-loop coding agent system with 48 specialized loop types across 4 architectural layers. Targets SWE-bench Verified ≥98%, deployed on Rust/Zig mesh infrastructure (cloud VMs + Raspberry Pis).</p>
+      </div>
+    </header>
+
+    <div class="summary-strip">
+      <div class="stat-card">
+        <span class="stat-value">48</span>
+        <span class="stat-label">Loop Types</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value">11</span>
+        <span class="stat-label">Model Tiers</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value">4</span>
+        <span class="stat-label">Layers</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value">38</span>
+        <span class="stat-label">New Implementations</span>
+      </div>
+    </div>
+
+    <section>
+      <div class="section-header">
+        <span class="section-number">01</span>
+        <h2>Architecture Layers</h2>
+      </div>
+      <div class="diagram-panel">
+        <svg viewBox="0 0 800 420" xmlns="http://www.w3.org/2000/svg" style="width:100%">
+          <!-- Layer 1: Cognition -->
+          <rect x="40" y="20" width="720" y="100" class="layer-cognition" rx="8"/>
+          <text x="60" y="50" font-family="var(--font-mono)" font-size="12" fill="var(--primary)" font-weight="600">LAYER 1 — COGNITION</text>
+          <text x="60" y="75" font-family="var(--font-sans)" font-size="13" fill="var(--foreground)">LlmClient, Session, PromptDispatcher, ModelRouter</text>
+          <text x="60" y="95" font-family="var(--font-sans)" font-size="12" fill="var(--muted-foreground)">OVHCloud virtual model queries (code_chat@latest, meta-llama@latest?params&gt;=70)</text>
+
+          <!-- Arrow down -->
+          <line x1="400" y1="130" x2="400" y2="155" stroke="var(--muted-foreground)" stroke-width="2" marker-end="url(#arrow)"/>
+
+          <!-- Layer 2: Orchestration -->
+          <rect x="40" y="160" width="720" height="80" class="layer-orchestration" rx="8"/>
+          <text x="60" y="190" font-family="var(--font-mono)" font-size="12" fill="var(--secondary)" font-weight="600">LAYER 2 — ORCHESTRATION</text>
+          <text x="60" y="215" font-family="var(--font-sans)" font-size="13" fill="var(--foreground)">Topology Mapping, Loop Routing, Actor Supervision</text>
+          <text x="60" y="235" font-family="var(--font-sans)" font-size="12" fill="var(--muted-foreground)">Yardmaster decomposition, Ralph observation, SharedSupervisor</text>
+
+          <!-- Arrow down -->
+          <line x1="400" y1="245" x2="400" y2="270" stroke="var(--muted-foreground)" stroke-width="2" marker-end="url(#arrow)"/>
+
+          <!-- Layer 3: Transport -->
+          <rect x="40" y="275" width="720" height="70" class="layer-transport" rx="8"/>
+          <text x="60" y="305" font-family="var(--font-mono)" font-size="12" fill="oklch(0.50 0.18 220)" font-weight="600">LAYER 3 — TRANSPORT</text>
+          <text x="60" y="330" font-family="var(--font-sans)" font-size="13" fill="var(--foreground)">Headscale / WireGuard Mesh VPN, Protobuf IPC</text>
+
+          <!-- Arrow down -->
+          <line x1="400" y1="350" x2="400" y2="375" stroke="var(--muted-foreground)" stroke-width="2" marker-end="url(#arrow)"/>
+
+          <!-- Layer 4: Execution -->
+          <rect x="40" y="380" width="720" height="35" class="layer-execution" rx="8"/>
+          <text x="60" y="403" font-family="var(--font-sans)" font-size="13" fill="var(--foreground)">Node Daemon, Bun Runtimes, Target VMs + Raspberry Pis</text>
+
+          <!-- Arrow marker -->
+          <defs>
+            <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto">
+              <path d="M0,0 L0,6 L9,3 z" fill="var(--muted-foreground)"/>
+            </marker>
+          </defs>
+        </svg>
+        <span class="diagram-caption">Data flows top-to-bottom: LLM cognition → orchestration → mesh transport → execution nodes</span>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-header">
+        <span class="section-number">02</span>
+        <h2>Model Tiers (OVHCloud Virtual Queries)</h2>
+      </div>
+      <div class="tier-grid">
+        <div class="tier-card">
+          <div class="tier-name">Frontier</div>
+          <div class="tier-model">meta-llama@latest?params&gt;=70</div>
+        </div>
+        <div class="tier-card">
+          <div class="tier-name">Reasoning</div>
+          <div class="tier-model">deepseek@latest</div>
+        </div>
+        <div class="tier-card">
+          <div class="tier-name">Code Best</div>
+          <div class="tier-model">code_chat@latest</div>
+        </div>
+        <div class="tier-card">
+          <div class="tier-name">Code Mid</div>
+          <div class="tier-model">code_chat@latest?params&gt;=14</div>
+        </div>
+        <div class="tier-card">
+          <div class="tier-name">Code Small</div>
+          <div class="tier-model">mistral@latest</div>
+        </div>
+        <div class="tier-card">
+          <div class="tier-name">Code Spec</div>
+          <div class="tier-model">codestral@latest</div>
+        </div>
+        <div class="tier-card">
+          <div class="tier-name">Gen Large</div>
+          <div class="tier-model">qwen@latest</div>
+        </div>
+        <div class="tier-card">
+          <div class="tier-name">Gen Mid</div>
+          <div class="tier-model">qwen@latest?params&gt;=32</div>
+        </div>
+        <div class="tier-card">
+          <div class="tier-name">Gen Small</div>
+          <div class="tier-model">mistral@latest</div>
+        </div>
+        <div class="tier-card">
+          <div class="tier-name">Gen Tiny</div>
+          <div class="tier-model">mistral@latest</div>
+        </div>
+        <div class="tier-card">
+          <div class="tier-name">Math</div>
+          <div class="tier-model">mistral@latest</div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-header">
+        <span class="section-number">03</span>
+        <h2>Loop Categories</h2>
+      </div>
+      <div class="category-grid">
+        <div class="category-card">
+          <h3 class="category-title">Original 10</h3>
+          <div class="loop-list">
+            <span class="loop-chip highlight">deepwork</span>
+            <span class="loop-chip highlight">bruteforce-coder</span>
+            <span class="loop-chip">deep-research</span>
+            <span class="loop-chip">testers</span>
+            <span class="loop-chip">yardmaster</span>
+            <span class="loop-chip">devops</span>
+            <span class="loop-chip">ui</span>
+            <span class="loop-chip">red-team</span>
+            <span class="loop-chip">juniors</span>
+            <span class="loop-chip">ralph</span>
+          </div>
+        </div>
+        <div class="category-card">
+          <h3 class="category-title">SWE-Bench Pipeline</h3>
+          <div class="loop-list">
+            <span class="loop-chip">issue-analyzer</span>
+            <span class="loop-chip">codebase-explorer</span>
+            <span class="loop-chip">fix-planner</span>
+            <span class="loop-chip highlight">fix-implementer</span>
+            <span class="loop-chip">edge-case-analyzer</span>
+            <span class="loop-chip">regression-checker</span>
+            <span class="loop-chip">diff-builder</span>
+          </div>
+        </div>
+        <div class="category-card">
+          <h3 class="category-title">Testing Expanded</h3>
+          <div class="loop-list">
+            <span class="loop-chip">tester-unit</span>
+            <span class="loop-chip">tester-integration</span>
+            <span class="loop-chip">tester-benchmark</span>
+            <span class="loop-chip">tester-property</span>
+            <span class="loop-chip">tester-mutation</span>
+          </div>
+        </div>
+        <div class="category-card">
+          <h3 class="category-title">DevOps + Quality</h3>
+          <div class="loop-list">
+            <span class="loop-chip">devops-build</span>
+            <span class="loop-chip">devops-package</span>
+            <span class="loop-chip">devops-deploy</span>
+            <span class="loop-chip">devops-cache</span>
+            <span class="loop-chip">quality-lint</span>
+            <span class="loop-chip">quality-audit</span>
+            <span class="loop-chip">quality-coverage</span>
+            <span class="loop-chip">quality-typecheck</span>
+            <span class="loop-chip">quality-style</span>
+          </div>
+        </div>
+        <div class="category-card">
+          <h3 class="category-title">Memory / Learning</h3>
+          <div class="loop-list">
+            <span class="loop-chip">memory-indexer</span>
+            <span class="loop-chip">memory-pattern-miner</span>
+            <span class="loop-chip">memory-summarizer</span>
+          </div>
+        </div>
+        <div class="category-card">
+          <h3 class="category-title">Ralph Expanded</h3>
+          <div class="loop-list">
+            <span class="loop-chip">ralph-coder</span>
+            <span class="loop-chip">ralph-research</span>
+            <span class="loop-chip highlight">ralph-meta</span>
+          </div>
+        </div>
+        <div class="category-card">
+          <h3 class="category-title">Infrastructure</h3>
+          <div class="loop-list">
+            <span class="loop-chip">infra-provisioner</span>
+            <span class="loop-chip">infra-monitor</span>
+            <span class="loop-chip">infra-balancer</span>
+          </div>
+        </div>
+        <div class="category-card">
+          <h3 class="category-title">Utility</h3>
+          <div class="loop-list">
+            <span class="loop-chip">reporter</span>
+            <span class="loop-chip">validator</span>
+            <span class="loop-chip">notebook</span>
+            <span class="loop-chip">math-solver</span>
+            <span class="loop-chip">math-verify</span>
+          </div>
+        </div>
+        <div class="category-card">
+          <h3 class="category-title">Research</h3>
+          <div class="loop-list">
+            <span class="loop-chip">research-web</span>
+            <span class="loop-chip">research-docs</span>
+            <span class="loop-chip">research-patterns</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="section-header">
+        <span class="section-number">04</span>
+        <h2>Config-Driven Model Routing</h2>
+      </div>
+      <p style="max-width: 65ch; margin: 16px 0;">Model tier aliases and loop mappings are loaded from <code style="font-family: var(--font-mono); font-size: 0.85rem;">crates/cognition/config/models.toml</code> at compile time. Git-tracked, CI-validatable, zero opencode restart required.</p>
+      <div class="code-panel">
+        <span class="code-label">crates/cognition/config/models.toml</span>
+        <pre><code><span class="cm"># Model tier aliases</span>
+<span class="kw">[tiers]</span>
+<span class="fn">FRONTIER</span> = <span class="str">"meta-llama@latest?params&gt;=70"</span>
+<span class="fn">REASONING</span> = <span class="str">"deepseek@latest"</span>
+<span class="fn">CODE_BEST</span> = <span class="str">"code_chat@latest"</span>
+<span class="fn">CODE_MID</span> = <span class="str">"code_chat@latest?params&gt;=14"</span>
+<span class="fn">CODE_SMALL</span> = <span class="str">"mistral@latest"</span>
+
+<span class="cm"># Loop → tier mappings (48 total)</span>
+<span class="kw">[loops]</span>
+<span class="fn">deepwork</span> = <span class="str">"FRONTIER"</span>
+<span class="fn">bruteforce-coder</span> = <span class="str">"CODE_BEST"</span>
+<span class="fn">fix-implementer</span> = <span class="str">"CODE_BEST"</span>
+<span class="fn">juniors</span> = <span class="str">"CODE_SMALL"</span>
+<span class="cm"># ... 44 more</span></code></pre>
+      </div>
+    </section>
+  </div>
+</body>
+</html>

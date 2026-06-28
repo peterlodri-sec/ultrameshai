@@ -1,4 +1,6 @@
-use crate::traits::{Loop, LoopInput, LoopOutput, LoopStats, Result, LoopError};
+use crate::traits::{Loop, LoopInput, LoopOutput, LoopStats};
+use crate::error::{LoopError};
+use crate::error::{Result};
 use loop_engineering_cognition::{LlmClient, Session, PromptDispatcher, Role};
 
 pub struct DeepworkLoop {
@@ -46,7 +48,7 @@ impl Loop for DeepworkLoop {
         
         let messages = self.session.get_messages().to_vec();
         let response = self.client.chat(messages).await
-            .map_err(|e| LoopError::Llm(e.to_string()))?;
+            .map_err(|e| LoopError::LlmPermanent(e.to_string()))?;
         
         self.session.add_message(Role::Assistant, response.content.clone());
         self.stats.slices_processed += 1;
@@ -56,6 +58,8 @@ impl Loop for DeepworkLoop {
             result: response.content,
             tool_calls: vec![],
             stats: self.stats.clone(),
+            reward_earned: None,
+            a2a_completed: false,
         })
     }
 

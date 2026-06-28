@@ -1,4 +1,5 @@
-use crate::traits::{Loop, LoopInput, LoopOutput, LoopStats, Result};
+use crate::traits::{Loop, LoopInput, LoopOutput, LoopStats};
+use crate::error::{Result};
 use honcho::LearningPattern;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -92,6 +93,8 @@ impl Loop for DeepResearchLoop {
             result: input.task_desc,
             tool_calls: vec![],
             stats: self.stats.clone(),
+            reward_earned: None,
+            a2a_completed: false,
         })
     }
 

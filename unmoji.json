@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "mode": "strip",
+  "processMarkdown": true,
+  "markdownExtensions": [".md"],
+  "showNotification": true,
+  "notificationStyle": "thread"
+  "preserveCodeBlocks": true,
+  "preserveInlineCode": true,
+  "skipQuotes": false,
+  "replacementStyle": "github",
+  "replacementFormat": "[:name:]",
+}
