@@ -9,6 +9,7 @@ tokio-util = { version = "0.7", features = ["codec"] }
 prost = "0.14"
 bytes = "1.6"
 thiserror = "1.0"
+memmap2 = "0.9"
 
 [build-dependencies]
 prost-build = "0.14"

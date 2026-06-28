@@ -1,26 +1,16 @@
-use crate::traits::{Loop, LoopInput, LoopOutput, LoopStats, Result, LoopError};
+use crate::traits::{Loop, LoopInput, LoopOutput, LoopStats, Result};
 use honcho::LearningPattern;
-use loop_engineering_cognition::{LlmClient, PromptDispatcher, ModelRouter};
-use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
 pub struct DeepResearchLoop {
-    client: LlmClient,
-    dispatcher: PromptDispatcher,
     stats: LoopStats,
     honcho_patterns: Arc<RwLock<Vec<LearningPattern>>>,
 }
 
 impl DeepResearchLoop {
     pub fn new() -> Self {
-        let router = ModelRouter::default();
-        let client = router.create_client("research", "mock-key", "http://localhost")
-            .unwrap_or_else(|| LlmClient::mock("openai/gpt-4-turbo"));
-        let dispatcher = PromptDispatcher::default();
         Self {
-            client,
-            dispatcher,
             stats: LoopStats::default(),
             honcho_patterns: Arc::new(RwLock::new(vec![])),
         }
@@ -95,18 +85,11 @@ impl Loop for DeepResearchLoop {
     }
 
     async fn process(&mut self, input: LoopInput) -> Result<LoopOutput> {
-        let mut variables = HashMap::new();
-        variables.insert("task".to_string(), input.task_desc.clone());
-        
-        let prompt = self.dispatcher
-            .dispatch("research", &variables)
-            .unwrap_or_else(|| input.task_desc.clone());
-        
         self.stats.slices_processed += 1;
         
         Ok(LoopOutput {
             slice_id: input.slice_id,
-            result: prompt,
+            result: input.task_desc,
             tool_calls: vec![],
             stats: self.stats.clone(),
         })

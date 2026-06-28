@@ -150,6 +150,7 @@ async function flushCirculatorAsync(): Promise<void> {
           embedding_model: "bge-m3",
         },
       }),
+      signal: AbortSignal.timeout(1000),
     }).catch(() => spillCirculatorOverflow(entries));
   } catch {
     spillCirculatorOverflow(entries);
@@ -197,6 +198,7 @@ async function embedText(text: string): Promise<number[] | null> {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ model: "bge-m3", input: text }),
+      signal: AbortSignal.timeout(1000),
     });
     if (!res.ok) return null;
     const json = await res.json() as { data?: { embedding?: number[] }[] };
@@ -232,6 +234,7 @@ async function writeDroppedDigest(
           embedding_model: "bge-m3",
         },
       }),
+      signal: AbortSignal.timeout(1000),
     });
   } catch {
     // skip
@@ -316,28 +319,35 @@ async function queryMilvusSimilarity(
   embedding: number[],
   milvusUrl: string,
 ): Promise<number> {
-  for (const coll of ["research_findings", "learning_patterns"]) {
-    try {
-      const res = await fetch(`${milvusUrl}/v1/query`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          collection_name: coll,
-          output_fields: ["embedding"],
-          topK: 1,
-          vector: embedding,
-        }),
-      });
-      if (res.ok) {
-        const json = await res.json() as { results?: { distance?: number }[] };
-        const d = json.results?.[0]?.distance ?? 0.0;
-        if (d > 0) return d;
+  const collections = ["research_findings", "learning_patterns"];
+  try {
+    const promises = collections.map(async (coll) => {
+      try {
+        const res = await fetch(`${milvusUrl}/v1/query`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            collection_name: coll,
+            output_fields: ["embedding"],
+            topK: 1,
+            vector: embedding,
+          }),
+          signal: AbortSignal.timeout(1000),
+        });
+        if (res.ok) {
+          const json = await res.json() as { results?: { distance?: number }[] };
+          return json.results?.[0]?.distance ?? 0.0;
+        }
+      } catch {
+        // ignore
       }
-    } catch {
-      // continue
-    }
+      return 0.0;
+    });
+    const results = await Promise.all(promises);
+    return Math.max(...results);
+  } catch {
+    return 0.0;
   }
-  return 0.0;
 }
 
 // ─── Honcho Patterns (Composer) ──────────────────────────────────────────────

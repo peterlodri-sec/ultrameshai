@@ -1,6 +1,7 @@
 pub mod framed;
 pub mod error;
 pub mod uds;
+pub mod mmap;
 
 // Re-export generated protobuf types
 pub mod proto {

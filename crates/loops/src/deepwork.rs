@@ -1,5 +1,5 @@
 use crate::traits::{Loop, LoopInput, LoopOutput, LoopStats, Result, LoopError};
-use loop_engineering_cognition::{LlmClient, Session, PromptDispatcher, ModelRouter, Role};
+use loop_engineering_cognition::{LlmClient, Session, PromptDispatcher, Role};
 
 pub struct DeepworkLoop {
     client: LlmClient,
@@ -10,7 +10,6 @@ pub struct DeepworkLoop {
 
 impl DeepworkLoop {
     pub fn new() -> Self {
-        let router = ModelRouter::default();
         let client = LlmClient::mock("deepwork");
         let session = Session::new("deepwork-loop", "unit-000");
         let dispatcher = PromptDispatcher::default();

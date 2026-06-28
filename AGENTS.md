@@ -75,3 +75,17 @@ docs/superpowers/      # specs, plans
 - TDD for all Rust crates (failing test first, then implementation).
 - Caveman mode active in this project (see `~/.config/opencode/AGENTS.caveman.md`). Code, commits, PRs, and security warnings stay normal English.
 - SDD workspace at `.superpowers/sdd/` tracks task progress in `progress.md` ledger — check it before re-dispatching tasks.
+
+## Agent Harness & ECL
+
+This project uses an Evolutionary Change Log (ECL) to track changes.
+- Rules: [docs/ECL.md](file:///Users/lodripeter/workspace/peterlodri-sec/ultrameshai/docs/ECL.md)
+- Status: [docs/STATUS.md](file:///Users/lodripeter/workspace/peterlodri-sec/ultrameshai/docs/STATUS.md)
+- Architecture: [docs/ARCHITECTURE.md](file:///Users/lodripeter/workspace/peterlodri-sec/ultrameshai/docs/ARCHITECTURE.md)
+
+### Verification
+Run ECL linting and tests before any merge:
+```bash
+nu scripts/lint-ecl.nu
+cargo test
+```

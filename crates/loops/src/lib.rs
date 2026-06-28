@@ -1,4 +1,5 @@
 pub mod traits;
+pub mod actor;
 mod deepwork;
 mod bruteforce_coder;
 pub mod deep_research;
@@ -11,6 +12,7 @@ pub mod juniors;
 mod ralph;
 
 pub use traits::{Loop, LoopInput, LoopOutput, LoopStats, LoopError, Result};
+pub use actor::{AgentActor, ActorHandle, ActorMessage, ActorState, Supervisor, SharedSupervisor, new_shared_supervisor};
 pub use deepwork::DeepworkLoop;
 pub use bruteforce_coder::BruteforceCoderLoop;
 pub use deep_research::DeepResearchLoop;

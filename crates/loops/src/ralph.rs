@@ -1,24 +1,12 @@
-use crate::traits::{Loop, LoopInput, LoopOutput, LoopStats, Result, LoopError};
-use loop_engineering_cognition::{LlmClient, Session, PromptDispatcher, ModelRouter};
-use std::collections::HashMap;
+use crate::traits::{Loop, LoopInput, LoopOutput, LoopStats, Result};
 
 pub struct RalphLoop {
-    client: LlmClient,
-    session: Session,
-    dispatcher: PromptDispatcher,
     stats: LoopStats,
 }
 
 impl RalphLoop {
     pub fn new() -> Self {
-        let router = ModelRouter::default();
-        let client = LlmClient::mock("anthropic/claude-3-5-sonnet");
-        let session = Session::new("ralph-loop", "unit-000");
-        let dispatcher = PromptDispatcher::default();
         Self {
-            client,
-            session,
-            dispatcher,
             stats: LoopStats::default(),
         }
     }

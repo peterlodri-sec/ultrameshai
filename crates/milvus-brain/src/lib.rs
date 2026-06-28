@@ -1,4 +1,5 @@
 mod client;
+mod circulator;
 mod collection;
 mod embedding;
 mod error;
@@ -8,6 +9,7 @@ mod query;
 mod write;
 
 pub use client::MilvusClient;
+pub use circulator::{Circulator, Classification, GraphTriple, PrunedContextEntry};
 pub use collection::CollectionSchema;
 pub use embedding::EmbeddingClient;
 pub use error::{MilvusError, Result};

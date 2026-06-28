@@ -80,3 +80,54 @@ message LearningPattern {
   bytes metadata = 8;          // JSON metadata (correlation, p-values)
   uint64 created_at_ms = 9;
 }
+
+// Graph triple for relationship-aware retrieval
+message GraphTriple {
+  string subject = 1;
+  string predicate = 2;
+  string object = 3;
+}
+
+enum Classification {
+  CLASSIFICATION_UNSPECIFIED = 0;
+  CLASSIFICATION_FACT = 1;
+  CLASSIFICATION_EVENT = 2;
+  CLASSIFICATION_INSTRUCTION = 3;
+  CLASSIFICATION_TASK = 4;
+}
+
+// Pruned context entry (kompress circulator -> milvus)
+message PrunedContextEntry {
+  string session_id = 1;
+  string agent_type = 2;
+  string message_role = 3;
+  string content_hash = 4;
+  Classification classification = 5;
+  string topic_key = 6;
+  string superseded_by = 7;
+  repeated GraphTriple triples = 8;
+  string residual = 9;
+  uint64 timestamp_ms = 10;
+}
+
+// File context sidecar (.kompress/files/<path>.json)
+message FileContextSidecar {
+  string file_path = 1;
+  string last_mutated_commit = 2;
+  string architectural_intent = 3;
+  repeated string known_quirks = 4;
+  repeated string dependencies = 5;
+  repeated GraphTriple triples = 6;
+}
+
+// Handover brief (.kompress/HANDOVER.md)
+message HandoverBrief {
+  string source_agent = 1;
+  string target_agent = 2;
+  string status = 3;
+  string intent_summary = 4;
+  string last_error = 5;
+  repeated string critical_files = 6;
+  repeated string next_steps = 7;
+  uint64 timestamp_ms = 8;
+}

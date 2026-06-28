@@ -1,0 +1,18 @@
+{
+  "file_path": "src/lib.rs",
+  "last_mutated_commit": "commit-v2",
+  "architectural_intent": "library root v2",
+  "known_quirks": [
+    "deprecated function on line 10"
+  ],
+  "dependencies": [
+    "anyhow"
+  ],
+  "triples": [
+    {
+      "s": "lib.rs",
+      "p": "depends",
+      "o": "anyhow"
+    }
+  ]
+}

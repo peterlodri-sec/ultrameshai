@@ -1,5 +1,6 @@
 use crate::error::{CognitionError, Result};
 use serde::{Deserialize, Serialize};
+use std::sync::Mutex;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -51,6 +52,7 @@ pub struct LlmClient {
     api_key: Option<String>,
     base_url: Option<String>,
     is_mock: bool,
+    inner: Mutex<Option<agent_core::client::LlmClient>>,
 }
 
 impl LlmClient {
@@ -60,6 +62,7 @@ impl LlmClient {
             api_key: Some(api_key.to_string()),
             base_url: Some(base_url.to_string()),
             is_mock: false,
+            inner: Mutex::new(None),
         }
     }
 
@@ -69,7 +72,20 @@ impl LlmClient {
             api_key: None,
             base_url: None,
             is_mock: true,
+            inner: Mutex::new(None),
         }
+    }
+
+    fn get_inner(&self) -> Result<std::sync::MutexGuard<'_, Option<agent_core::client::LlmClient>>> {
+        let mut guard = self.inner.lock().map_err(|e| CognitionError::LlmApi(format!("Lock poisoned: {}", e)))?;
+        if guard.is_none() {
+            let api_key = self.api_key.as_deref().unwrap_or("");
+            let base_url = self.base_url.as_deref().unwrap_or("https://dashscope.aliyuncs.com/api/v1");
+            let client = agent_core::client::LlmClient::with_config(&self.model_id, api_key, base_url)
+                .map_err(|e| CognitionError::LlmApi(format!("Failed to create agent-core client: {}", e)))?;
+            *guard = Some(client);
+        }
+        Ok(guard)
     }
 
     pub fn parse_provider(model_id: &str) -> String {
@@ -89,14 +105,8 @@ impl LlmClient {
             });
         }
 
-        let api_key = self.api_key.as_deref().unwrap_or("");
-        let base_url = self.base_url.as_deref().unwrap_or("https://dashscope.aliyuncs.com/api/v1");
-
-        let core_client = agent_core::client::LlmClient::with_config(
-            &self.model_id,
-            api_key,
-            base_url,
-        ).map_err(|e| CognitionError::LlmApi(format!("Failed to create agent-core client: {}", e)))?;
+        let guard = self.get_inner()?;
+        let core_client = guard.as_ref().unwrap();
 
         let core_messages: Vec<(String, String)> = messages
             .iter()

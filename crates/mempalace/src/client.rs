@@ -130,6 +130,41 @@ impl MempalaceClient {
     }
 }
 
+#[async_trait::async_trait]
+impl crate::store::StateStore for MempalaceClient {
+    async fn write_stats(&self, stats: UnitStats) -> Result<()> {
+        self.write_stats(stats).await
+    }
+
+    async fn get_unit(&self, unit_id: &str) -> Result<Option<UnitStats>> {
+        self.get_unit(unit_id).await
+    }
+
+    async fn query_stats(&self, query: StatsQueryBuilder) -> Result<Vec<UnitStats>> {
+        self.query_stats(query).await
+    }
+
+    async fn query_all(&self) -> Result<Vec<UnitStats>> {
+        self.query_all().await
+    }
+
+    async fn clear(&self) -> Result<()> {
+        self.clear().await
+    }
+
+    async fn aggregate_by_loop_type(&self) -> Result<Vec<LoopTypeAgg>> {
+        self.aggregate_by_loop_type().await
+    }
+
+    async fn aggregate_by_status(&self) -> Result<Vec<StatusAgg>> {
+        self.aggregate_by_status().await
+    }
+
+    async fn memory_distribution(&self) -> Result<Vec<MemoryBucket>> {
+        self.memory_distribution().await
+    }
+}
+
 /// Optional MemoryStore trait implementation for milvus compatibility
 /// mempalace doesn't store research findings - these are no-ops
 #[cfg(feature = "milvus-compat")]
