@@ -13,6 +13,8 @@ export interface KompressUltraOptions {
   sliceAwareBoost?: boolean;
   /** Show kompress status block after each prune */
   displayPruneStatus?: boolean;
+  /** Show human-readable transparency summary (what/why) */
+  transparencyMode?: boolean;
 }
 
 const DEFAULT_OPTIONS: Required<KompressUltraOptions> = {
@@ -25,6 +27,7 @@ const DEFAULT_OPTIONS: Required<KompressUltraOptions> = {
   droppedMessageDigest: true,
   sliceAwareBoost: true,
   displayPruneStatus: true,
+  transparencyMode: true,
 };
 
 interface Message {
@@ -444,8 +447,35 @@ function buildBrainLine(brainState: BrainState): string {
 
 // ─── Kompress Status Display ──────────────────────────────────────────────────────
 
-function buildKompressDisplay(stats: KompressStats): Message {
+function buildKompressDisplay(stats: KompressStats, transparencyMode: boolean = false): Message {
   const saved = stats.tokensPruned - stats.tokensKept;
+  
+  if (transparencyMode) {
+    // Human-readable transparency summary
+    const lines = [
+      `🗜️  kompress: context optimized`,
+      `   • Removed ${stats.pruned} low-signal messages (below threshold ${stats.threshold.toFixed(2)})`,
+      `   • Kept ${stats.kept} messages (last 5 + user/code/errors + high-relevance)`,
+      `   • Saved ~${saved.toLocaleString()} tokens (${Math.round(saved / stats.tokensPruned * 100)}% reduction)`,
+      `   • Pruned content sent to brain for future retrieval`,
+    ];
+    
+    if (stats.history.length > 0) {
+      const avg = (stats.history.reduce((a, b) => a + b, 0) / stats.history.length).toFixed(0);
+      lines.push(`   • Context trend: ${avg} msg avg (stable)`);
+    }
+    
+    lines.push("─");
+    
+    return {
+      role: "system",
+      content: lines.join("\n"),
+      _kompress: true,
+      _kompressPruneEvent: true,
+    } as Message;
+  }
+  
+  // Technical dense format (legacy)
   const lines = [
     `── kompress ${stats.model} ──`,
     `  pruned  ${stats.pruned} msg  ${stats.tokensPruned.toLocaleString()} tok  (threshold=${stats.threshold.toFixed(2)}, density=${stats.density.toFixed(2)})`,
@@ -610,7 +640,7 @@ export default (
           tokensPruned,
           tokensKept,
         };
-        const kompressDisplay = buildKompressDisplay(kompressStats);
+        const kompressDisplay = buildKompressDisplay(kompressStats, mergedOpts.transparencyMode);
 
         // Append brain liveness to kompress display
         const brainState = await readBrainState();
