@@ -384,7 +384,7 @@ mod tests {
         assert_eq!(node.ip, "100.64.0.10".parse::<IpAddr>().unwrap());
 
         // Associate registry with Node 1 (5 units running) and Node 2 (1 unit running)
-        let registry = Arc::new(std::sync::Mutex::new(NodeRegistry::new()));
+        let registry = Arc::new(std::sync::Mutex::new(NodeRegistry::new(90)));
         {
             let mut reg = registry.lock().unwrap();
             reg.register_node(loop_engineering_node_registry::types::NodeEntry::new(

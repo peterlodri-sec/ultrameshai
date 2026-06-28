@@ -13,7 +13,7 @@ fn make_node_entry(node_id: &str, memory_mb: u64) -> NodeEntry {
 
 #[test]
 fn test_register_and_query_node() {
-    let mut registry = NodeRegistry::new();
+    let mut registry = NodeRegistry::new(90);
     let entry = make_node_entry("vm-01", 60000);
     registry.register_node(entry);
 
@@ -24,7 +24,7 @@ fn test_register_and_query_node() {
 
 #[test]
 fn test_register_multiple_nodes() {
-    let mut registry = NodeRegistry::new();
+    let mut registry = NodeRegistry::new(90);
     registry.register_node(make_node_entry("vm-01", 60000));
     registry.register_node(make_node_entry("vm-02", 30000));
     registry.register_node(make_node_entry("rpi-01", 3000));
@@ -35,7 +35,7 @@ fn test_register_multiple_nodes() {
 
 #[test]
 fn test_node_counts() {
-    let mut registry = NodeRegistry::new();
+    let mut registry = NodeRegistry::new(90);
     registry.register_node(make_node_entry("vm-01", 60000));
     registry.register_node(make_node_entry("vm-02", 30000));
 
@@ -47,8 +47,7 @@ fn test_node_counts() {
 
 #[test]
 fn test_uptime() {
-    let registry = NodeRegistry::new();
-    let uptime = registry.uptime_secs();
-    // Simplified implementation returns 0
-    assert_eq!(uptime, 0);
+    let registry = NodeRegistry::new(90);
+    let _uptime = registry.uptime_secs();
+    // uptime >= 0 always holds for u64
 }

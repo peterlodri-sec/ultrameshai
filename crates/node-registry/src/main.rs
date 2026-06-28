@@ -15,8 +15,13 @@ async fn main() {
         .parse::<u64>()
         .unwrap_or(60);
     
+    let stale_threshold = std::env::var("STALE_THRESHOLD_SECS")
+        .unwrap_or_else(|_| "90".into())
+        .parse::<u64>()
+        .unwrap_or(90);
+    
     // Create registry wrapped in Arc<Mutex> for thread-safe access
-    let registry = Arc::new(Mutex::new(NodeRegistry::new()));
+    let registry = Arc::new(Mutex::new(NodeRegistry::new(stale_threshold)));
     let discovery = Arc::new(TailscaleDiscovery::new(tailnet));
     
     // Spawn background tasks

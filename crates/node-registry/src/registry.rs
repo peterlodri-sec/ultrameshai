@@ -1,13 +1,21 @@
 use std::collections::HashMap;
+use std::time::Instant;
+use chrono::Duration;
 use crate::types::{NodeEntry, NodeStatus};
 
 pub struct NodeRegistry {
     nodes: HashMap<String, NodeEntry>,
+    stale_threshold_secs: u64,
+    start_time: Instant,
 }
 
 impl NodeRegistry {
-    pub fn new() -> Self {
-        Self { nodes: HashMap::new() }
+    pub fn new(stale_threshold_secs: u64) -> Self {
+        Self {
+            nodes: HashMap::new(),
+            stale_threshold_secs,
+            start_time: Instant::now(),
+        }
     }
 
     /// Register or update a node from heartbeat
@@ -23,29 +31,36 @@ impl NodeRegistry {
     /// Get node counts for health endpoint
     pub fn get_node_counts(&self) -> (usize, usize, usize) {
         let total = self.nodes.len();
-        let online = self.nodes.values().filter(|n| matches!(n.status, NodeStatus::Online)).count();
-        let offline = self.nodes.values().filter(|n| matches!(n.status, NodeStatus::Offline)).count();
+        let online = self.nodes.values().filter(|n| n.status == NodeStatus::Online).count();
+        let offline = total - online;
         (total, online, offline)
     }
 
     /// Get uptime in seconds
     pub fn uptime_secs(&self) -> u64 {
-        0 // Simplified
+        self.start_time.elapsed().as_secs() as u64
     }
 
     /// Check for stale nodes and return their IDs
     pub fn check_stale_nodes(&self) -> Vec<String> {
-        Vec::new() // Simplified
+        let now = chrono::Utc::now();
+        let threshold = Duration::seconds(self.stale_threshold_secs as i64);
+        self.nodes.iter()
+            .filter(|(_, entry)| now.signed_duration_since(entry.last_heartbeat) > threshold)
+            .map(|(id, _)| id.clone())
+            .collect()
     }
 
     /// Mark node as offline
-    pub fn mark_offline(&self, _node_id: &str) {
-        // Simplified
+    pub fn mark_offline(&mut self, node_id: &str) {
+        if let Some(entry) = self.nodes.get_mut(node_id) {
+            entry.mark_failure();
+        }
     }
 }
 
 impl Default for NodeRegistry {
     fn default() -> Self {
-        Self::new()
+        Self::new(90)
     }
 }
