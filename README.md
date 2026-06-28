@@ -1,5 +1,9 @@
 # UltrameshAI
 
+<p align="center">
+  <img src="docs/media/social_preview.jpg" alt="UltrameshAI Social Preview" width="100%">
+</p>
+
 Loop-Engineering Agent Stack substrate for high-performance, decentralized capability-aware agent routing and lifecycle management on cloud VMs and Raspberry Pis.
 
 ---
