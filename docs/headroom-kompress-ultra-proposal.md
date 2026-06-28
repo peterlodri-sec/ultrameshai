@@ -1,119 +1,106 @@
 # Proposal: Integrating `kompress-ultra` Context Management into Headroom
 **Author:** Peter Lodri & Antigravity  
+**Reference Paper:** [Asymmetric Loss Modulation Resolves the Voting Ensemble Paradox in Learned Context-Pruning Ensembles](https://kompress.vaked.dev/paper/main.pdf) (Lodri et al., 2026)  
 **Target Audience:** Headroom Core Maintainers & Contributors  
 **Status:** Draft / RFC  
 
 ---
 
-##  EXECUTIVE SUMMARY
+## 📋 EXECUTIVE SUMMARY
 
 In long-running agent loops (such as SWE-bench tasks, multi-turn reasoning chains, and autonomous coding cycles), **context window bloat** is the primary driver of latency, cost, and cognitive degradation ("lost-in-the-middle" effects). 
 
-`kompress-ultra` is an intelligent, lossy-yet-safe context compression engine designed to maintain a highly dense, semantically rich context window. While developed as a core component of the **UltrameshAI** decentralized agent substrate, `kompress-ultra` is fully modular and ready to be integrated into **Headroom** to optimize token economy and agent performance.
+`kompress-ultra` is an intelligent, learned context-pruning engine based on the `kompress-v8` model architecture—a **149M-parameter dual-head ModernBERT** fine-tuned using asymmetric loss modulation. 
+
+This proposal outlines the integration of `kompress-ultra` into **Headroom** (referencing Headroom PR #1419) to provide near-lossless context compression, achieving a **0.993 exact-keep rate** on critical tokens compared to traditional prompt-compression baselines (e.g., `LLMLingua-2`'s 0.867 and `TextRank`'s 0.599).
 
 ---
 
-## 1. THE PROBLEM: THE CONTEXT TAX
+## 1. THE THEORETICAL FOUNDATION
 
-In naive agent architectures, every turn in a conversation accumulates the entire historical transcript. This leads to three systemic failure modes:
+### 1.1 The Representational Impoverishment Problem
+As established in the reference paper, context pruning is not semantically neutral. Traditional token-eviction algorithms suffer from **representational impoverishment** on the *critical-syntactic* token class $T_{\text{crit}}$—including identifiers, file paths, exit codes, and delimiters:
+
+> *"A downstream agent cannot reason about a signal name, file path, or exit code that has been evicted from its context; token eviction is therefore an act of representational impoverishment."*
+
+### 1.2 The Voting Ensemble Paradox
+A common design pattern for safety in context pruning is to use a multi-checkpoint voting ensemble. However, the paper proves the **Voting Ensemble Paradox**: under unanimity-to-keep (AND) voting ($k=1$ drop-if-any) over checkpoints trained on asymmetric data floors, the ensemble's eviction indicator collapses to the pointwise maximum of the individual voter indicators:
+
+$$I_{\text{ens}}(x) = \bigvee_{i=1}^N I_i(x) = \max_{i \in [N]} I_i(x) = I_{i^*_k}(x)$$
+
+Where $V_{i^*_k}$ represents the weakest voter on a given token stratum $S_k$. This results in a **stratum-wise Pareto collapse**:
+
+$$\text{Recall}_{S_k}(\hat{V}) = \text{Recall}_{S_k}(V_{i^*_k})$$
+
+Empirically, rather than reducing errors, the ensemble acts as a *"Frankenstein of per-stratum worst cases,"* regressing the heretic exact-keep rate to **0.931** (worse than any single model alone, such as `v4` at **0.967**).
+
+---
+
+## 2. THE THREE CORRECTIVE MECHANISMS
+
+To resolve the ensemble paradox and ensure the preservation of critical reasoning tokens, `kompress-ultra` implements three complementary mechanisms defined in the paper:
 
 ```
-[Naive Context Accumulation]
-  Turn 1: (Prompt + Reply) -> 2k tokens
-  Turn 2: (History + Prompt + Reply) -> 5k tokens
-  Turn 10: (Massive History + Prompt + Reply) -> 45k tokens (80% redundant)
+[Mechanism A: Asymmetric Loss]      [Mechanism B: Regex Override]      [Mechanism C: Self-Labeling]
+      Training-time 3.0x                  Inference-time surgical            Oracle loop internalizing
+   weighted Cross-Entropy penalty            force-keep filter                the regex safety floor
 ```
 
-1. **Exponential Cost:** You pay for the same historical tokens repeatedly on every single inference call.
-2. **Latency Scaling:** Time-to-First-Token (TTFT) and generation times increase lineary/exponentially with context size.
-3. **Attention Dilution:** As context grows, LLMs struggle to locate critical instructions, error messages, or code constraints buried in the middle of the history.
+### Mechanism A: Asymmetric Loss Modulation
+During training, we apply a $\lambda = 3.0$ weighted cross-entropy penalty specifically on the false eviction of critical-syntactic tokens ($T_{\text{crit}}$):
+
+$$\mathcal{L}_i = \mathcal{L}_{\text{base}}(\theta_i) + \lambda \cdot \frac{1}{|T_{\text{crit}}|} \sum_{x \in T_{\text{crit}}} I^{\text{fe}}_i(x)$$
+
+This concentrates gradients on each voter's weakest strata, shrinking their rejection sets and lifting the overall Pareto frontier.
+
+### Mechanism B: Post-Inference Regex Override
+A lightweight ($\sim 0.1 \text{ ms}$), training-free inference-time filter that surgically force-keeps Must-Keep patterns (CamelCase, hex addresses, dotted paths, flags):
+
+$$I^{(B)}_i(x) = I_i(x) \land \neg \text{Match}_{\text{MUST\_KEEP\_RE}}(\text{decode}(x))$$
+
+### Mechanism C: Self-Labeling Loop
+Uses the combination of $A + B$ as an oracle to relabel the training dataset, allowing subsequent generations of the model to internalize the regex safety floor directly into the model weights, making the inference-time override redundant over time.
 
 ---
 
-## 2. THE THEORY: ACTIVE VS. PASSIVE MEMORY
+## 3. THE MODEL ARCHITECTURE: DUAL-HEAD ModernBERT
 
-`kompress-ultra` operates on the theory of **Active vs. Passive Memory**:
-* **Active Memory (The Context Window):** Must only contain active reasoning state, recent turns, current code blocks, and system instructions. It should be highly compressed, removing natural language filler.
-* **Passive Memory (The Vector Space):** Older, pruned conversational turns and historical attempts are offloaded to a vector database (e.g., Milvus/MemPalace) and retrieved dynamically only when a semantic match occurs.
+The production model, `kompress-v8`, utilizes a **149M-parameter ModernBERT** backbone paired with a custom dual-head architecture:
+1. **Token-Classifier Head ($h_{\text{tok}}$):** Computes per-token eviction logits.
+2. **Span-CNN Head ($h_{\text{span}}$):** Computes span-level coherence to prevent token fragmentation.
 
----
+The two heads are coupled via an **Asymmetric Modulation Gate** which inhibits the eviction of tokens within high-coherence spans:
 
-## 3. HOW IT WORKS: THE 4-ROLE PIPELINE
-
-`kompress-ultra` replaces naive history concatenation with a pipeline governed by four specialized roles:
-
-```mermaid
-graph TD
-    Input[Raw Message History] --> Pruner{1. Pruner}
-    Pruner -->|Preserves Safety Floor| Rewriter[2. Rewriter]
-    Pruner -->|Offloads Deleted Turns| Circulator[(3. Circulator / Milvus)]
-    Rewriter -->|Compresses Text| Composer[4. Composer]
-    Composer -->|Appends Brain Patterns| Output[Dense Context Window]
-```
-
-### 1. The Pruner (Context Decimation)
-Evaluates the utility of every message. It drops low-value conversational turns while strictly enforcing a **Safety Floor**:
-* **Preserves:** The last 5 message turns (immediate conversational context).
-* **Preserves:** All code blocks (` ``` `) and compiler/runtime error logs.
-* **Preserves:** System prompts and critical steering instructions.
-* **Discards:** Multi-turn conversational filler, greetings, and repetitive status updates.
-
-### 2. The Rewriter (Semantic Squeezing)
-Compresses the remaining text by stripping natural language fluff while preserving technical keywords, variables, and intent.
-* *Example Input:* `"I have reviewed the authentication logic and I would be happy to help you implement the OAuth2 flow in the system."`
-* *Example Output (Ultra-Compressed):* `"reviewed authentication logic, implement OAuth2 flow"`
-
-### 3. The Circulator (Memory Archiving)
-Takes the messages discarded by the **Pruner** and indexes them into a local vector store (like Milvus or MemPalace). If the agent later mentions a topic related to a pruned turn, the **Circulator** pulls it back into the active context.
-
-### 4. The Composer (Prompt Synthesis)
-Synthesizes the final prompt by combining the compressed active history with relevant "brain patterns" (retrieved memory vectors) to steer the agent's next step.
+$$\tilde{I}_i(x) = \sigma\left(\text{logits}_{\text{tok}}(x) - \gamma g(\text{logits}_{\text{span}}(x))\right)$$
 
 ---
 
-## 4. CURRENT OBSERVATIONS & BENCHMARKS
+## 4. EMPIRICAL BENCHMARKS
 
-During integration testing of `kompress-ultra` within the `oh-my-opencode-slim` multi-agent loops, we observed the following:
+`kompress-v8` was evaluated against standard prompt-compression baselines on adversarial, must-keep-dense prompts (the *Heretic* benchmark):
 
-| Metric | Naive Context | `kompress-ultra` | Delta |
-| :--- | :--- | :--- | :--- |
-| **Avg. Token Count (Turn 20+)** | ~35,000 tokens | ~7,500 tokens | **-78.5%** |
-| **Average TTFT (Latency)** | 2.4 seconds | 0.6 seconds | **-75.0%** |
-| **Task Success Rate (SWE-bench)**| 21.4% | 22.8% | **+1.4%** (Improved focus) |
-| **Hardware Viability** | Cloud VMs only | Raspberry Pi 4 (4GB) / VMs | **Decentralized Ready** |
+| Method | Exact Keep % ($T_{\text{crit}}$) | Keep Rate (Tokens Kept) | Avg. Latency (ms) |
+| :--- | :---: | :---: | :---: |
+| **`kompress-v8` (Ours, Production)** | **0.993** | 0.936 | **97.0 ms** |
+| **`kompress-v8` (Ours, `v4` SSL)** | **0.967** | 0.823 | — |
+| **Random Eviction (Floor)** | 0.910 | 0.835 | 0.0 ms |
+| **`LLMLingua-2`** | 0.867 | 1.550 | 238.9 ms |
+| **`TextRank` (Extractive)** | 0.599 | 0.543 | 23.1 ms |
 
-### Key Takeaways:
-* **No Loss in Capabilities:** Because the **Safety Floor** protects code blocks and errors, the agent's ability to debug and write code is unaffected by the compression.
-* **Cost Reduction:** Token cost dropped by **~78%**, making long-running loops economically viable for production deployments.
-
----
-
-## 5. THE BIG PICTURE: `ultrameshai`
-
-`kompress-ultra` is not an isolated utility; it is the memory engine of **UltrameshAI**, a 4-layer decentralized agent stack:
-1. **Cognition Layer:** LLM client and routing.
-2. **Orchestration Layer:** Topology mapping and lock-free routing.
-3. **Transport Layer:** High-throughput UDS/Protobuf communication.
-4. **Execution Layer:** Nushell-sandboxed agent runtimes.
-
-By managing the memory footprint at the Cognition/Orchestration boundary, `kompress-ultra` allows us to run agent units under a strict **100MB soft memory limit** on target nodes (such as edge devices and cloud VMs).
+### Key Observations:
+* **LLMLingua-2 Limitation:** Fails to preserve critical identifiers, dropping them in favor of overall token-budget reduction, resulting in a low **0.867** exact-keep rate.
+* **TextRank Limitation:** Extractive sentence-level summarization is unsuitable for agent context preservation, dropping high-density token strata entirely.
+* **`kompress-v8` Sweet Spot:** Achieves near-perfect must-keep survival (**0.993**) with highly efficient local CPU execution times ($\sim 97 \text{ ms}$).
 
 ---
 
-## 6. PROPOSED INTEGRATION PATH FOR HEADROOM
+## 5. PROPOSED INTEGRATION PATH FOR HEADROOM
 
-We propose exposing `kompress-ultra` as a first-class middleware or plugin in **Headroom**:
+Integrating `kompress-ultra` into Headroom will allow developers to run long-running agent loops at a fraction of the cost and latency while preserving execution safety.
 
-1. **Context Middleware Interface:**
-   Introduce a `ContextCompressor` trait in Headroom's pipeline that intercept outgoing LLM payloads.
-2. **Pluggable Vector Backends:**
-   Support MemPalace (SQLite-based local vector store) out-of-the-box for zero-dependency local runs, with adapters for Milvus.
-3. **Configurable Compression Levels:**
-   Allow users to configure compression modes per agent (e.g., `None` for short tasks, `Lite` for medium tasks, and `Ultra` for deep reasoning loops).
-
----
-
-## FEEDBACK & DISCUSSION
-We would love to get the core team's thoughts on:
-1. Does this align with Headroom's current roadmap for handling long-context agents?
-2. Should we implement this as a core middleware or an opt-in plugin?
+1. **Context Compression Middleware:**
+   Add a `ContextCompressor` pipeline step in Headroom that intercepts outgoing payloads and routes them through the local ONNX export of `kompress-v8`.
+2. **Deterministic Safety Net (PR #1419):**
+   Integrate the regex-driven Must-Keep override as a configurable post-inference filter.
+3. **Pluggable Memory Backends:**
+   Support local SQLite-based memory tracking (matching the `LoopKit` state kernel) to easily transition pruned context into passive vector storage.
