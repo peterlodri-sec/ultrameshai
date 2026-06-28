@@ -15,3 +15,6 @@ result-*
 
 # Encrypted env (track .env.example + .sops.yaml instead)
 .env
+
+# Git Worktrees
+.worktrees/
