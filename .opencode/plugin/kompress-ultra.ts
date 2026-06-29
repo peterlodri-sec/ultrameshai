@@ -13,6 +13,8 @@ import {
   adaptiveThreshold,
   scoreMessage,
   isProtected,
+  ebbinghausDecay,
+  structuralBoost,
   compressMessage,
   CompressionLevel,
   buildKompressDisplay,
@@ -26,6 +28,25 @@ import {
   escalateForBudget,
   DEFAULT_BUDGETS,
 } from "../../packages/kompress-ultra/src/index.js";
+
+// Re-exports for middleware consumers (score.test.ts, integration.test.ts, litellm-hook.ts)
+export {
+  isProtected,
+  scoreMessage,
+  ebbinghausDecay,
+  structuralBoost,
+  compressMessage,
+  CompressionLevel,
+  isCircuitOpen,
+  computeDensity,
+  adaptiveThreshold,
+  buildKompressDisplay,
+  readBrainState,
+  buildBrainLine,
+  fetchHonchoPatterns,
+  classifyMessage,
+  escalateForBudget,
+};
 
 // ─── Plugin State ───────────────────────────────────────────────────────────
 

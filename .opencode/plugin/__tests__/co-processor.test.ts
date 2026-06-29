@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test';
-import { CoProcessor } from '../lib/co-processor';
+import { CoProcessor } from '../../lib/co-processor';
 
 describe('CoProcessor', () => {
   let cp: CoProcessor;
