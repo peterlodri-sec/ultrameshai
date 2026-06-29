@@ -69,6 +69,33 @@ print(next(iter(ds)))"
 
 ---
 
+## 🗂️ Inline TOC (text — survives any HF renderer)
+
+```
+01 · TL;DR
+02 · Inline TOC (this block)
+03 · Visual Identity
+04 · Live Tracker
+05 · Notebook sections
+       1. Load the dataset
+       2. Schema reference
+       3. Run the loop locally
+       4. Self-host the loop (NixOS)
+       5. Deploy your own fork
+       6. MCP for AI coding agents
+       7. One-shot prompts for contributors
+       8. Kompress integration
+       9. Privacy & scrubbing
+      10. Ecosystem & cite
+06 · Contribute / Self-host
+07 · Contributor CLI
+08 · Footer
+```
+
+> Why text? The HF dataset viewer doesn't run a client-side TOC plugin. A code-fenced text block is the only thing that survives every rendering mode (raw, dataset viewer, embedding, copy-paste). Same content as the 📑 table below — duplicated on purpose.
+
+---
+
 ## 🎨 Visual Identity
 
 The dataset ships with a custom logo. The whale swims in a 5-ring data loop, breathing HF-yellow samples into the dark, eye on the stream.
@@ -469,11 +496,30 @@ Every section is **self-contained** — copy the block you need, skip the rest. 
 
 <div align="center">
 
-**Built by:** [Crush](https://github.com/charmbracelet/crush) + [opencode](https://opencode.ai) agent loops · [NixOS](https://nixos.org) self-hosted
+---
 
-*A stream, not a snapshot. The loop keeps running.*
+## 🔨 Provenance & Build Transparency
+
+This dataset card was autonomously generated and iterated by a swarm of coding agent loops. Every row in `data/loop-*.jsonl` is traceable to a single dogfeed-loop iteration, every compressed answer to a `kompress-ultra` pass, every push to a HF commit. Nothing is claimed that cannot be traced to an on-repo artifact.
+
+| Pipeline step | Where it lives | Verification |
+|---|---|---|
+| Loop iteration | `packages/dogfeed/src/loop.ts` | 48 bun tests pass |
+| PII scrubbing | `packages/dogfeed/src/scrub.ts` | `bun test test/scrub.test.ts` |
+| Kompress pass | `packages/kompress-ultra/src/rewriter.ts` | 22 bun tests pass |
+| JSONL push | `packages/dogfeed/src/publish.ts` | `bun test test/publish.test.ts` |
+| Self-host | `nix-base/modules/dogfeed.nix` | systemd `RestartSec=intervalSec` |
+| Telemetry | `pocoo.vaked.dev` | public log stream |
+
+---
+
+**Built by:** [Crush](https://github.com/charmbracelet/crush) + [opencode](https://opencode.ai) agent loops · [NixOS](https://nixos.org) self-hosted on Hetzner cx53
+
+*1 session, 6 repos, fully autonomous, fully self-hosted. The loop keeps running.*
 
 [![Star on GitHub](https://img.shields.io/github/stars/peterlodri-sec/ultrameshai?style=social)](https://github.com/peterlodri-sec/ultrameshai)
 [![Follow on HuggingFace](https://img.shields.io/badge/Follow-%40PeetPedro-FFD21E?style=social&logo=huggingface)](https://huggingface.co/PeetPedro)
+
+**No tracking · No cookies · No ads · Apache 2.0**
 
 </div>
