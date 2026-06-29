@@ -1,4 +1,8 @@
-const HF_API_BASE = "https://api-inference.huggingface.co/models";
+// HF chat requests go to the OpenAI-compatible router endpoint
+// (https://huggingface.co/docs/huggingface_hub/en/guides/inference#openai-compatibility).
+// The per-model legacy `/models/<id>/v1/chat/completions` route is not a
+// chat-completions path and returns non-OK — see review P2 on PR #3.
+const HF_ROUTER_URL = "https://router.huggingface.co/v1/chat/completions";
 
 export interface LLMResponse {
   content: string;
@@ -57,7 +61,7 @@ export async function askHF(
   maxTokens: number,
 ): Promise<LLMResponse | null> {
   try {
-    const res = await fetch(`${HF_API_BASE}/${modelId}/v1/chat/completions`, {
+    const res = await fetch(HF_ROUTER_URL, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${token}`,

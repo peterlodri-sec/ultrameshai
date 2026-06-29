@@ -30,16 +30,19 @@ export async function iteration(
     return { record: null, topic: "", skipped: "daily token limit" };
   }
 
+  // Pass-by-reference so Ralph reflection can steer the next pickTopic.
+  let ralphTopic: string | null = null;
   if (shouldReflect(conn.totalRecords(), config.ralphEvery)) {
     const newTopic = await runReflection(
       conn, config.models, config.openrouterKey ?? "", config.hfToken ?? "", config.maxTokens,
     );
     if (newTopic) {
+      ralphTopic = newTopic;
       logEvent(conn, "INFO", `ralph: topic steered to "${newTopic}"`);
     }
   }
 
-  const topic = pickTopic(
+  const topic = ralphTopic ?? pickTopic(
     config.topics, conn, config.models,
     config.openrouterKey ?? "", config.hfToken ?? "", config.maxTokens,
   );
@@ -50,18 +53,32 @@ export async function iteration(
     QUESTION_PROMPT(topic), model,
     config.openrouterKey ?? "", config.hfToken ?? "", config.maxTokens,
   );
-  if (!questionResp?.content) {
+  if (questionResp) {
+    conn.recordProviderCall(model, "question", questionResp.tokens_in, questionResp.tokens_out, true);
+  } else {
+    conn.recordProviderCall(model, "question", 0, 0, false);
     logEvent(conn, "WARN", `question generation failed for topic "${topic}"`);
     return { record: null, topic, skipped: "question generation failed" };
+  }
+  if (!questionResp.content) {
+    logEvent(conn, "WARN", `question generation returned empty for topic "${topic}"`);
+    return { record: null, topic, skipped: "question generation empty" };
   }
 
   const answerResp = await ask(
     ANSWER_PROMPT(questionResp.content), model,
     config.openrouterKey ?? "", config.hfToken ?? "", config.maxTokens,
   );
-  if (!answerResp?.content) {
+  if (answerResp) {
+    conn.recordProviderCall(model, "answer", answerResp.tokens_in, answerResp.tokens_out, true);
+  } else {
+    conn.recordProviderCall(model, "answer", 0, 0, false);
     logEvent(conn, "WARN", `answer generation failed for question`);
     return { record: null, topic, skipped: "answer generation failed" };
+  }
+  if (!answerResp.content) {
+    logEvent(conn, "WARN", `answer generation returned empty`);
+    return { record: null, topic, skipped: "answer generation empty" };
   }
 
   const cleanedAnswer = scrubPII(answerResp.content);

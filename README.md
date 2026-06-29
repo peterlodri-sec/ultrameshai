@@ -28,11 +28,15 @@ When you talk to an AI for a long time, the chat history gets huge. This makes t
   * **It files old memories away:** Anything it deletes is saved into a long-term database (Milvus/MemPalace) so the AI can search and recall it later (**Circulator**).
 #### Mathematical Safety Floor & Paradox Resolution
 To resolve the **Voting Ensemble Paradox** where conservative voting collapses stratum-wise recall:
-$$I_{\text{ens}}(x) = \bigvee_{i=1}^N I_i(x) = I_{i^*_k}(x)$$
 
-> **Notation:** $i^*_k = \arg\min_{i \in [N]} \text{recall}_i$ denotes the weakest voter on each stratum — the voter whose recall sets the floor for the ensemble under AND-voting.
+Under AND-voting, the per-stratum ensemble indicator equals the maximum over voter indicators. That max picks out the **weakest voter on that stratum** — the one most likely to have evicted a critical token — so the ensemble's recall drops to the level of its worst member:
 
-We apply an asymmetric loss penalty ($\lambda = 3.0$) on the false eviction of critical-syntactic tokens ($T_{\text{crit}}$):
+$$I_{\text{ens}}(x) \;=\; \bigvee_{i=1}^{N} I_i(x) \;=\; I_{i^{\*}_k}(x)$$
+
+> **Notation:** \(i^{\*}_k = \arg\min_{i \in [N]} \text{recall}_i\) — the **weakest** voter on stratum \(k\) is the one whose indicator survives the OR. Under AND-voting, the ensemble's stratum-wise recall equals the worst voter's recall on that stratum.
+
+We apply an asymmetric loss penalty (\(\lambda = 3.0\)) on the false eviction of critical-syntactic tokens (\(T_{\text{crit}}\)):
+
 $$\mathcal{L}_i = \mathcal{L}_{\text{base}}(\theta_i) + \lambda \cdot \frac{1}{|T_{\text{crit}}|} \sum_{x \in T_{\text{crit}}} I^{\text{fe}}_i(x)$$
 
 * **WHY:** To keep the agents running **fast, cheap, and smart**—especially on resource-constrained hardware like a Raspberry Pi!

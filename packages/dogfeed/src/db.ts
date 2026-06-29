@@ -22,13 +22,23 @@ export class DogfeedDB {
         tokens_in INTEGER DEFAULT 0,
         tokens_out INTEGER DEFAULT 0,
         compressed_answer TEXT,
-        hash TEXT NOT NULL,
+        hash TEXT NOT NULL UNIQUE,
         pushed INTEGER DEFAULT 0,
         created_at TEXT DEFAULT (datetime('now'))
       );
       CREATE INDEX IF NOT EXISTS idx_records_topic ON records(topic);
-      CREATE INDEX IF NOT EXISTS idx_records_hash ON records(hash);
       CREATE INDEX IF NOT EXISTS idx_records_pushed ON records(pushed);
+
+      CREATE TABLE IF NOT EXISTS provider_calls (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        model TEXT NOT NULL,
+        kind TEXT NOT NULL,
+        tokens_in INTEGER DEFAULT 0,
+        tokens_out INTEGER DEFAULT 0,
+        ok INTEGER DEFAULT 1,
+        created_at TEXT DEFAULT (datetime('now'))
+      );
+      CREATE INDEX IF NOT EXISTS idx_provider_calls_created ON provider_calls(created_at);
 
       CREATE TABLE IF NOT EXISTS config (
         key TEXT PRIMARY KEY,
@@ -48,6 +58,7 @@ export class DogfeedDB {
     const stmt = this.db.prepare(`
       INSERT INTO records (topic, question, answer, model, tokens_in, tokens_out, compressed_answer, hash, pushed)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+      ON CONFLICT(hash) DO NOTHING
     `);
     const result = stmt.run(r.topic, r.question, r.answer, r.model, r.tokens_in, r.tokens_out, r.compressed_answer ?? null, r.hash);
     return Number(result.lastInsertRowid);
@@ -56,6 +67,12 @@ export class DogfeedDB {
   isDuplicate(hash: string): boolean {
     const stmt = this.db.prepare("SELECT 1 FROM records WHERE hash = ? LIMIT 1");
     return stmt.get(hash) !== null;
+  }
+
+  recordProviderCall(model: string, kind: string, tokensIn: number, tokensOut: number, ok = true): void {
+    this.db.prepare(
+      "INSERT INTO provider_calls (model, kind, tokens_in, tokens_out, ok) VALUES (?, ?, ?, ?, ?)"
+    ).run(model, kind, tokensIn, tokensOut, ok ? 1 : 0);
   }
 
   totalRecords(): number {
@@ -99,17 +116,23 @@ export class DogfeedDB {
   }
 
   todayCalls(): number {
+    // Count actual provider HTTP calls, not stored rows (each iteration
+    // makes ≥1 call; failed calls also count so the daily quota is honored).
     const stmt = this.db.prepare(
-      "SELECT COUNT(*) as n FROM records WHERE created_at >= date('now')"
+      "SELECT COUNT(*) as n FROM provider_calls WHERE created_at >= date('now')"
     );
     return (stmt.get() as { n: number }).n;
   }
 
   todayTokens(): number {
     const stmt = this.db.prepare(
-      "SELECT COALESCE(SUM(tokens_in + tokens_out), 0) as n FROM records WHERE created_at >= date('now')"
+      "SELECT COALESCE(SUM(tokens_in + tokens_out), 0) as n FROM provider_calls WHERE created_at >= date('now')"
     );
     return (stmt.get() as { n: number }).n;
+  }
+
+  totalCalls(): number {
+    return (this.db.prepare("SELECT COUNT(*) as n FROM provider_calls").get() as { n: number }).n;
   }
 
   stats(): LoopStats {
@@ -117,14 +140,15 @@ export class DogfeedDB {
     const pushed = (this.db.prepare("SELECT COUNT(*) as n FROM records WHERE pushed = 1").get() as { n: number }).n;
     const tokens = (this.db.prepare("SELECT COALESCE(SUM(tokens_in + tokens_out), 0) as n FROM records").get() as { n: number }).n;
     const errors = (this.db.prepare("SELECT COUNT(*) as n FROM events WHERE level = 'ERROR'").get() as { n: number }).n;
+    const models = (this.db.prepare("SELECT DISTINCT model FROM provider_calls ORDER BY model").all() as { model: string }[]).map((r) => r.model);
     return {
       records_generated: total,
       records_pushed: pushed,
       tokens_used: tokens,
-      api_calls: total,
+      api_calls: this.totalCalls(),
       errors,
       topics_seen: this.topicsSeen(),
-      models_used: [],
+      models_used: models,
       uptime_sec: 0,
       started_at: new Date().toISOString(),
     };

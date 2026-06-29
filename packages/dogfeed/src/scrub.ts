@@ -22,11 +22,16 @@ export function normalizeForDedup(text: string): string {
 
 export function contentHash(text: string): string {
   const normalized = normalizeForDedup(text);
-  let h = 0;
-  for (let i = 0; i < normalized.length; i++) {
-    h = ((h << 5) - h + normalized.charCodeAt(i)) | 0;
-  }
-  return `dh-${Math.abs(h).toString(36)}`;
+  // Bun ships a Web Crypto-compatible API. SHA-256 over the normalized
+  // text gives us a 64-bit dedup ID that's collision-resistant for
+  // 100K+ row datasets (32-bit rolling hash birthday-collides at ~65K
+  // entries; see review P2 on PR #3).
+  const bytes = new TextEncoder().encode(normalized);
+  const digest = new Bun.CryptoHasher("sha256").update(bytes).digest("hex");
+  // Truncate to 16 hex chars (64 bits) — plenty for the dedup index
+  // and keeps HF row IDs short. Keep the `dh-` prefix so we can spot
+  // a hash field at a glance in raw JSONL.
+  return `dh-${digest.slice(0, 16)}`;
 }
 
 export function isQualityAnswer(answer: string, minLen = 50): boolean {

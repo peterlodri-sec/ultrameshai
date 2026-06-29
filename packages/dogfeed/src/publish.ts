@@ -45,10 +45,9 @@ export async function publishBatch(
   // Push the timestamped batch file
   const batchWrite = existingContent
     ? null
-    : await writeHFFile(hfRepo, path, content, hfToken, "append");
+    : await writeHFFile(hfRepo, path, content, hfToken, "add");
   if (existingContent) {
-    // File already existed — append by reading, then writing back
-    const overwrite = await writeHFFile(hfRepo, path, content, hfToken, "overwrite");
+    const overwrite = await writeHFFile(hfRepo, path, content, hfToken, "add");
     if (overwrite.oid) writtenFiles.push(path);
   } else if (batchWrite?.oid) {
     writtenFiles.push(path);
@@ -60,27 +59,30 @@ export async function publishBatch(
     "data/latest.jsonl",
     jsonl,
     hfToken,
-    "overwrite",
+    "add",
     "refresh latest batch mirror",
   );
   if (latestWrite.oid) writtenFiles.push("data/latest.jsonl");
 
-  // Refresh stats.json
-  const stats = conn.stats();
-  const statsWrite = await writeHFFile(
-    hfRepo,
-    "data/stats.json",
-    JSON.stringify(stats, null, 2),
-    hfToken,
-    "overwrite",
-    "refresh aggregate stats",
-  );
-  if (statsWrite.oid) writtenFiles.push("data/stats.json");
-
   if (writtenFiles.length > 0) {
+    // Mark local rows pushed FIRST, then snapshot stats — otherwise the
+    // uploaded stats.json under-reports records_pushed by the current
+    // batch. See review P2 on PR #3.
     const ids = records.map((r) => r.id!).filter(Boolean) as number[];
     conn.markPushed(ids);
     conn.logEvent("INFO", `pushed ${records.length} records to ${hfRepo}/${path}`);
+
+    // Refresh stats.json AFTER markPushed so the HF mirror matches DB state
+    const stats = conn.stats();
+    const statsWrite = await writeHFFile(
+      hfRepo,
+      "data/stats.json",
+      JSON.stringify(stats, null, 2),
+      hfToken,
+      "add",
+      "refresh aggregate stats",
+    );
+    if (statsWrite.oid) writtenFiles.push("data/stats.json");
 
     // Fire-and-forget webhook to proposal.vaked.dev (if configured)
     await notifyProposal(opts.webhookUrl, {
@@ -114,14 +116,47 @@ async function readHFFile(
   }
 }
 
+/**
+ * POST a commit to the HF dataset tree using the documented
+ * `create_commit` API: header is required, operations are
+ * `{key, value}` (or `{key, value, op?}`) where the supported ops
+ * are `add` / `delete` / `copy`. We use `add` for both new and
+ * overwrite (the API overwrites existing files with the same path).
+ *
+ * The legacy `$addToEnd` / `upsertFile` shape in earlier commits
+ * returned non-OK and silently dropped records — see review P2 on
+ * PR #3.
+ */
 async function writeHFFile(
   repo: string,
   path: string,
   content: string,
   token: string,
-  mode: "append" | "overwrite",
-  summary = mode === "append" ? "append batch" : "dogfeed publish",
-): Promise<{ oid: string | null; commitSummary: string }> {
+  op: "add" | "delete",
+  summary = "dogfeed publish",
+): Promise<{ oid: string | null }> {
+  if (op === "delete") {
+    const res = await fetch(`${HF_API}/datasets/${repo}/commit/main`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        summary,
+        operations: [{ key: path, op: "delete" }],
+      }),
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!res.ok) {
+      console.error(`[dogfeed] HF delete failed for ${path}: ${res.status}`);
+      return { oid: null };
+    }
+    const json = (await res.json()) as { commit?: { oid?: string } };
+    return { oid: json.commit?.oid ?? null };
+  }
+
+  // op === "add"
   const encoded = btoa(unescape(encodeURIComponent(content)));
   const res = await fetch(`${HF_API}/datasets/${repo}/commit/main`, {
     method: "POST",
@@ -132,19 +167,10 @@ async function writeHFFile(
     body: JSON.stringify({
       summary,
       operations: [
-        mode === "append"
-          ? {
-              $addToEnd: {
-                path,
-                content: { $base64: encoded },
-              },
-            }
-          : {
-              upsertFile: {
-                path,
-                content: { $base64: encoded },
-              },
-            },
+        {
+          key: path,
+          value: encoded,
+        },
       ],
     }),
     signal: AbortSignal.timeout(30_000),
@@ -152,10 +178,10 @@ async function writeHFFile(
   if (!res.ok) {
     const text = await res.text();
     console.error(`[dogfeed] HF commit failed for ${path}: ${res.status} ${text.slice(0, 200)}`);
-    return { oid: null, commitSummary: summary };
+    return { oid: null };
   }
   const json = (await res.json()) as { commit?: { oid?: string } };
-  return { oid: json.commit?.oid ?? null, commitSummary: summary };
+  return { oid: json.commit?.oid ?? null };
 }
 
 /**

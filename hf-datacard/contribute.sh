@@ -35,8 +35,8 @@ for arg in "$@"; do
   esac
 done
 
-hr() { [ "$RAW" -eq 1 ] && return; printf '\n\033[1;36m━━━ %s ━━━\033[0m\n' "$1"; }
-code() { [ "$RAW" -eq 1 ] && cat; return; printf '\n```%s\n' "${1:-}"; cat; printf '```\n'; }
+hr() { [ "$RAW" -eq 1 ] && return 0 || true; printf '\n\033[1;36m━━━ %s ━━━\033[0m\n' "$1"; }
+code() { [ "$RAW" -eq 1 ] && { cat; return 0; } || true; printf '\n```%s\n' "${1:-}"; cat; printf '```\n'; }
 
 section_load() {
   hr "load the dataset"

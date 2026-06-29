@@ -108,17 +108,24 @@ describe("DogfeedDB", () => {
     expect(db.todayCalls()).toBe(0);
     expect(db.todayTokens()).toBe(0);
     db.insertRecord({ topic: "ml", question: "Q", answer: "A", model: "test", tokens_in: 100, tokens_out: 200, hash: "dh-t", pushed: false });
-    expect(db.todayCalls()).toBe(1);
-    expect(db.todayTokens()).toBe(300);
+    // day counts actual provider calls, not stored rows — and the loop
+    // makes ≥1 question call + 1 answer call per iteration.
+    db.recordProviderCall("test", "question", 100, 200);
+    db.recordProviderCall("test", "answer", 100, 200);
+    expect(db.todayCalls()).toBe(2);
+    expect(db.todayTokens()).toBe(600);
   });
 
   test("stats", () => {
     const db = setup();
     db.insertRecord({ topic: "ml", question: "Q", answer: "A", model: "test", tokens_in: 10, tokens_out: 20, hash: "dh-s", pushed: false });
+    db.recordProviderCall("test", "question", 10, 20);
     const stats = db.stats();
     expect(stats.records_generated).toBe(1);
     expect(stats.records_pushed).toBe(0);
     expect(stats.tokens_used).toBe(30);
+    expect(stats.api_calls).toBe(1);
+    expect(stats.models_used).toEqual(["test"]);
   });
 
   test("empty markPushed is no-op", () => {
