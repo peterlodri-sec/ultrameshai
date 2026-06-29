@@ -82,7 +82,7 @@ impl Default for DeepResearchLoop {
 #[async_trait::async_trait]
 impl Loop for DeepResearchLoop {
     fn loop_type(&self) -> &str {
-        "deep-research-loop"
+        "deep-research"
     }
 
     async fn process(&mut self, input: LoopInput) -> Result<LoopOutput> {

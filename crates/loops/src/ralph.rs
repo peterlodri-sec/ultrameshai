@@ -22,7 +22,7 @@ impl Default for RalphLoop {
 #[async_trait::async_trait]
 impl Loop for RalphLoop {
     fn loop_type(&self) -> &str {
-        "ralph-loop"
+        "ralph"
     }
 
     async fn process(&mut self, input: LoopInput) -> Result<LoopOutput> {

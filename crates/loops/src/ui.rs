@@ -22,7 +22,7 @@ impl Default for UiLoop {
 #[async_trait::async_trait]
 impl Loop for UiLoop {
     fn loop_type(&self) -> &str {
-        "ui-loop"
+        "ui"
     }
 
     async fn process(&mut self, input: LoopInput) -> Result<LoopOutput> {

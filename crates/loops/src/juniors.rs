@@ -95,7 +95,7 @@ impl Default for JuniorsLoop {
 #[async_trait::async_trait]
 impl Loop for JuniorsLoop {
     fn loop_type(&self) -> &str {
-        "juniors-loop"
+        "juniors"
     }
 
     async fn process(&mut self, input: LoopInput) -> Result<LoopOutput> {
