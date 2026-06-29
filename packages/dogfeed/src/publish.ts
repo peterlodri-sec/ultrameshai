@@ -10,7 +10,8 @@ export function recordsToJSONL(records: Record[]): string {
         id: `dogfeed-${r.created_at?.replace(/[^0-9]/g, "").slice(0, 14) ?? Date.now()}-${r.id}`,
         topic: r.topic,
         question: r.question,
-        answer: r.compressed_answer ?? r.answer,
+        answer: r.answer,
+        compressed_answer: r.compressed_answer ?? null,
         model: r.model,
         tokens_in: r.tokens_in,
         tokens_out: r.tokens_out,
@@ -38,8 +39,37 @@ export async function publishBatch(
   const existingContent = await readHFFile(hfRepo, path, hfToken);
   const content = existingContent ? existingContent + "\n" + jsonl : jsonl;
 
-  const sha = existingContent ? undefined : await createHFFile(hfRepo, path, content, hfToken);
-  if (sha) {
+  // Push the timestamped batch file
+  const sha = existingContent
+    ? null
+    : await writeHFFile(hfRepo, path, content, hfToken, "append");
+  if (existingContent) {
+    // File already existed — append by reading, then writing back
+    await writeHFFile(hfRepo, path, content, hfToken, "overwrite");
+  }
+
+  // Mirror the latest batch to data/latest.jsonl (always fresh)
+  await writeHFFile(
+    hfRepo,
+    "data/latest.jsonl",
+    jsonl,
+    hfToken,
+    "overwrite",
+    "refresh latest batch mirror",
+  );
+
+  // Refresh stats.json
+  const stats = conn.stats();
+  await writeHFFile(
+    hfRepo,
+    "data/stats.json",
+    JSON.stringify(stats, null, 2),
+    hfToken,
+    "overwrite",
+    "refresh aggregate stats",
+  );
+
+  if (sha || existingContent) {
     const ids = records.map((r) => r.id!).filter(Boolean) as number[];
     conn.markPushed(ids);
     conn.logEvent("INFO", `pushed ${records.length} records to ${hfRepo}/${path}`);
@@ -66,11 +96,13 @@ async function readHFFile(
   }
 }
 
-async function createHFFile(
+async function writeHFFile(
   repo: string,
   path: string,
   content: string,
   token: string,
+  mode: "append" | "overwrite",
+  summary = mode === "append" ? "append batch" : "dogfeed publish",
 ): Promise<string | null> {
   const encoded = btoa(unescape(encodeURIComponent(content)));
   const res = await fetch(`${HF_API}/datasets/${repo}/commit/main`, {
@@ -80,18 +112,30 @@ async function createHFFile(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
+      summary,
       operations: [
-        {
-          $addToEnd: {
-            path,
-            content: { $base64: encoded },
-          },
-        },
+        mode === "append"
+          ? {
+              $addToEnd: {
+                path,
+                content: { $base64: encoded },
+              },
+            }
+          : {
+              upsertFile: {
+                path,
+                content: { $base64: encoded },
+              },
+            },
       ],
     }),
     signal: AbortSignal.timeout(30_000),
   });
-  if (!res.ok) return null;
+  if (!res.ok) {
+    const text = await res.text();
+    console.error(`[dogfeed] HF commit failed for ${path}: ${res.status} ${text.slice(0, 200)}`);
+    return null;
+  }
   const json = (await res.json()) as { commit?: { oid?: string } };
   return json.commit?.oid ?? null;
 }

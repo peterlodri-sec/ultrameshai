@@ -9,386 +9,445 @@ tags:
 - kompress
 - kompress-ultra
 - agent-loops
-- modernbert
-- reinforcement-learning
-- asymmetric-loss
-- voting-ensemble-paradox
-- llm-efficiency
-- prompt-compression
-- dataset-viewer
-- token-classification
+- opencode
+- dogfood
+- self-hosting
+- silver-label
 - text-generation
+- dataset-viewer
+- jsonl
 pretty_name: Ultrawhale Dogfood Corpus
 size_categories:
 - 10K<n<100K
 task_categories:
-- token-classification
 - text-generation
-pipeline_tag: token-classification
-viewer: true
 configs:
 - config_name: default
   data_files:
   - split: train
-    path: dogfeed.parquet
+    path: data/loop-*.jsonl
+  - split: latest
+    path: data/latest.jsonl
+license: apache-2.0
 ---
 
 <div align="center">
 
-# Ultrawhale Dogfood
+# 🐳 Ultrawhale Dogfood
 
-### A Silver-Label Corpus for Asymmetric Context-Pruning in LLM Agent Loops
+### Self-generated, self-hosted, silver-label Q&A corpus from a continuously-running dogfeed loop
 
-[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=flat-square)](https://www.apache.org/licenses/LICENSE-2.0)
-[![Format: Parquet](https://img.shields.io/badge/Format-Parquet-8B5CF6?style=flat-square)](#dataset-structure)
-[![Size: 45K Turns](https://img.shields.io/badge/45K-Turns-10B981?style=flat-square)](#overview)
-[![Model: kompress-v8](https://img.shields.io/badge/Model-kompress--v8-06B6D4?style=flat-square)](https://huggingface.co/PeetPedro/kompress-v8)
-[![Paper](https://img.shields.io/badge/Paper-kompress.vaked.dev-EC4899?style=flat-square)](https://kompress.vaked.dev/paper/main.pdf)
-[![Proposal](https://img.shields.io/badge/Proposal-proposal.vaked.dev-F59E0B?style=flat-square)](https://proposal.vaked.dev)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=for-the-badge)](https://www.apache.org/licenses/LICENSE-2.0)
+[![HF: PeetPedro/ultrawhale-dogfood](https://img.shields.io/badge/HF-PeetPedro%2Fultrawhale--dogfood-FFD21E?style=for-the-badge&logo=huggingface&logoColor=black)](https://huggingface.co/datasets/PeetPedro/ultrawhale-dogfood)
+[![kompress-ultra](https://img.shields.io/badge/powered%20by-kompress--ultra-8B5CF6?style=for-the-badge)](https://github.com/peterlodri-sec/kompress-ultra)
+[![Self-Hosted](https://img.shields.io/badge/self--hosted-NixOS-5277C3?style=for-the-badge&logo=nixos&logoColor=white)](https://github.com/peterlodri-sec/nix-base)
+[![dogfeed loop](https://img.shields.io/badge/dogfeed-systemd-10B981?style=for-the-badge&logo=linux&logoColor=white)](https://github.com/peterlodri-sec/ultrameshai/tree/main/packages/dogfeed)
 
-*Training data for the [kompress-v8](https://huggingface.co/PeetPedro/kompress-v8) model — 149M-parameter ModernBERT achieving **78.5% token savings** with **0.993 exact-keep rate** on critical tokens.*
+**[📊 Live Tracker](#-live-tracker)** · **[🚀 Data Studio](https://huggingface.co/datasets/PeetPedro/ultrawhale-dogfood/viewer)** · **[🤝 Contribute](#-contribute--self-host)** · **[🐚 Contributor CLI](#-contributor-cli)**
 
 </div>
 
 ---
 
-## Overview
+## 📋 TL;DR
 
-**Ultrawhale Dogfood** is a high-fidelity silver-label corpus of verbose agent conversation histories paired with their pruned counterparts. Each example contains:
+A real, running **dogfeed loop** (a NixOS systemd service on a Hetzner cx53) calls free OpenRouter models every 60s, scrubs PII, deduplicates, compresses the answer with `kompress-ultra`, and publishes JSONL batches here. **This is not a one-shot dataset — it's a stream you can subscribe to.**
 
-- **Raw input**: Multi-turn agent logs, compiler output, tool execution results, code diffs
-- **Pruned target**: Non-essential tokens evicted, $T_{\text{crit}}$ safety-floor tokens preserved
-- **Token-level labels**: Binary eviction flags per token (keep=1, evict=0)
+```bash
+# install
+pip install datasets
 
-Generated during self-improving dogfeeding runs of the [opencode](https://opencode.ai) agent framework, this corpus trains token-level context pruners that power [kompress-ultra](https://github.com/peterlodri-sec/kompress-ultra).
-
-### Key Metrics
-
-| Metric | Value |
-|--------|-------|
-| Total turns | 45,000+ |
-| Unique topics | 7 (code_diff, log_stream, json_tool_output, agent_error, bash_output, file_read, error_trace) |
-| Avg. compression ratio | 3.2x |
-| Critical token preservation rate | 99.3% |
-| Source framework | opencode agent loops |
-
----
-
-## Interactive Data Studio
-
-Explore the dataset splits, filter by pipeline role, and inspect token-level eviction labels:
-
-**[Open Data Studio →](https://huggingface.co/datasets/PeetPedro/ultrawhale-dogfood/viewer)**
-
----
-
-## Mathematical Foundation
-
-The training targets in this dataset are generated under an asymmetric loss formulation that resolves the **Voting Ensemble Paradox**:
-
-### The Paradox
-
-Under unanimity-to-keep (AND) voting, the ensemble eviction indicator equals the pointwise maximum of individual voter indicators:
-
-$$I_{\text{ens}}(x) = \bigvee_{i=1}^N I_i(x) = I_{i^*_k}(x)$$
-
-> **Notation:** $i^*_k = \arg\min_{i \in [N]} \text{recall}_i$ — the weakest voter on each stratum sets the ensemble recall floor.
-
-### The Fix
-
-An asymmetric loss penalty ($\lambda = 3.0$) on false eviction of critical-syntactic tokens ($T_{\text{crit}}$):
-
-$$\mathcal{L}_i = \mathcal{L}_{\text{base}}(\theta_i) + \lambda \cdot \frac{1}{|T_{\text{crit}}|} \sum_{x \in T_{\text{crit}}} I^{\text{fe}}_i(x)$$
-
-### What is $T_{\text{crit}}$?
-
-The **critical-syntactic safety floor** protects tokens that are essential for code correctness:
-
-| Token Type | Examples |
-|------------|----------|
-| File paths | `src/auth.rs`, `lib/utils.ts` |
-| Commands | `cargo test`, `bun install` |
-| IP addresses | `100.64.0.1` |
-| Secrets | `{{SECRET_KEY}}` |
-| Docker hashes | `sha256:d8a5a...` |
-| Memory addresses | `0x7ffee3...` |
-
----
-
-## Dataset Structure
-
-### Splits
-
-| Split | Format | Description |
-|-------|--------|-------------|
-| `train` | Parquet | Main training split (dogfeed.parquet) |
-| `loop-*.jsonl` | JSONL | Individual dogfeeding loop generations |
-
-### Schema
-
-Each row contains:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `text` | `string` | Raw verbose input (stack traces, terminal output, multi-turn history) |
-| `reference` | `string` | Target pruned text with $T_{\text{crit}}$ tokens preserved |
-| `role` | `string` | Pipeline role: `pruner`, `rewriter`, or `composer` |
-| `source` | `string` | Domain source of the interaction |
-| `topic` | `string` | Technical category (see topics above) |
-
-### Example
-
-```json
-{
-  "text": "Compiling auth module...\nwarning: unused variable `temp`\n  --> src/auth.rs:42:9\n   |\n42 |     let temp = verify_token(token);\n   |         ^^^^ help: if this is intentional, prefix it with _\n\nerror[E0597]: `token` does not live long enough\n  --> src/auth.rs:58:20\n   |\n58 |     let session = Session::new(&token);\n   |                    ^^^^^^^^^^^^^^ borrowed value does not live long enough\nFor more information, try `--help E0597`.",
-  "reference": "error[E0597]: `token` does not live long enough --> src/auth.rs:58",
-  "role": "pruner",
-  "source": "opencode-agent",
-  "topic": "error_trace"
-}
+# stream the latest
+python -c "from datasets import load_dataset; \
+ds = load_dataset('PeetPedro/ultrawhale-dogfood', split='latest', streaming=True); \
+print(next(iter(ds)))"
 ```
 
 ---
 
-## Quick Start
+## 📡 Live Tracker
 
-### Load with HuggingFace Datasets
+> Updated every loop iteration. Sourced from the running `dogfeed` systemd service on `dev-cx53`.
+
+| Metric | Value | Source |
+|---|---|---|
+| **Loop status** | ![status](https://img.shields.io/badge/status-running-10B981?style=flat-square) | `systemctl is-active dogfeed` |
+| **Rows pushed (24h)** | see HF commit log | [`commits/main`](https://huggingface.co/datasets/PeetPedro/ultrawhale-dogfood/commits/main) |
+| **Latest batch** | `data/latest.jsonl` | [Open ↗](https://huggingface.co/datasets/PeetPedro/ultrawhale-dogfood/tree/main/data) |
+| **Free models in roster** | 3 (qwen-2.5-7b, llama-3.1-8b, mistral-7b) | [`modules/dogfeed.nix`](https://github.com/peterlodri-sec/nix-base/blob/main/modules/dogfeed.nix) |
+| **Interval** | 60s | systemd `RestartSec` |
+| **Daily call cap** | 500 | `dailyCallLimit` |
+| **Daily token cap** | 200K | `dailyTokenLimit` |
+| **Push cadence** | every 50 records | `pushEvery` |
+| **Reflection cadence** | every 50 records | `ralphEvery` |
+
+> 🔌 The service runs at `dev-cx53.tail2870dc.ts.net:tailnet-only`. You can mirror it to your own HF repo by overriding `peterlodri.dogfeed.hfRepo` in your flake — see the [deploy notebook](#-deploy-your-own-fork) below.
+
+---
+
+## 📑 Table of Contents
+
+Each section is a **self-contained notebook block** — copy the snippet, skip the rest. The contributor CLI ([below](#-contributor-cli)) prints any one of them on demand.
+
+| # | Section | Self-contained snippet |
+|---|---|---|
+| 1 | [Load the dataset](#1--load-the-dataset) | `contribute.sh load` |
+| 2 | [Schema reference](#2--schema-reference) | static table |
+| 3 | [Run the loop locally](#3--run-the-loop-locally) | `contribute.sh generate` |
+| 4 | [Self-host the loop](#4--self-host-the-loop-nixos) | `contribute.sh deploy` |
+| 5 | [Deploy your own fork](#5--deploy-your-own-fork) | `contribute.sh deploy` |
+| 6 | [MCP for AI coding agents](#6--mcp-for-ai-coding-agents) | `contribute.sh mcp` |
+| 7 | [One-shot prompts](#7--one-shot-prompts-for-contributors) | `contribute.sh prompt` |
+| 8 | [Kompress integration](#8--kompress-integration) | code block |
+| 9 | [Privacy & scrubbing](#9--privacy--scrubbing) | static table |
+| 10 | [Ecosystem & cite](#10--ecosystem--cite) | bibtex |
+
+---
+
+## 1 · Load the dataset
 
 ```python
 from datasets import load_dataset
 
-# Load the full dataset
-dataset = load_dataset("PeetPedro/ultrawhale-dogfood")
+# Full history
+ds = load_dataset("PeetPedro/ultrawhale-dogfood", split="train")
+print(f"rows: {len(ds)}, columns: {ds.column_names}")
 
-# Access training split
-train = dataset["train"]
+# Streaming latest (always fresh)
+latest = load_dataset("PeetPedro/ultrawhale-dogfood", split="latest", streaming=True)
+row = next(iter(latest))
+print(row)
 
-# Inspect first example
-print(train[0])
+# Filter
+code_diffs = ds.filter(lambda x: x["topic_category"] == "distributed-systems")
+pruned     = ds.filter(lambda x: x["role"] == "pruner")
 
-# Filter by topic
-code_diffs = train.filter(lambda x: x["topic"] == "code_diff")
-
-# Filter by role
-pruned = train.filter(lambda x: x["role"] == "pruner")
+# Convert to pandas
+df = ds.to_pandas()
+print(df.groupby(["topic_category", "role"]).size())
 ```
 
-### Compute Compression Stats
+> **Re-render this section in your terminal:** `./hf-datacard/contribute.sh load`
 
-```python
-def compression_ratio(example):
-    original_len = len(example["text"].split())
-    pruned_len = len(example["reference"].split())
-    return {"ratio": original_len / max(pruned_len, 1)}
+---
 
-ratios = train.map(compression_ratio)
-avg_ratio = sum(r["ratio"] for r in ratios) / len(ratios)
-print(f"Average compression ratio: {avg_ratio:.1f}x")
+## 2 · Schema reference
+
+> Matches `packages/dogfeed/src/publish.ts:recordsToJSONL()` — single source of truth.
+
+| Field | Type | Description |
+|---|---|---|
+| `id` | `string` | `dogfeed-{ISO}-{sqlite_rowid}` |
+| `topic` | `string` | Free-text topic (e.g. `"distributed systems"`) |
+| `question` | `string` | Generated question for the topic |
+| `answer` | `string` | Raw LLM answer |
+| `model` | `string` | OpenRouter model FQN (e.g. `qwen/qwen-2.5-7b-instruct:free`) |
+| `tokens_in` | `int` | Prompt tokens |
+| `tokens_out` | `int` | Completion tokens |
+| `role` | `string` | `"generator"` (raw) or `"pruner"` (kompress-ultra compressed) |
+| `source` | `string` | Always `"dogfeed-loop"` |
+| `topic_category` | `string` | Slugified topic (e.g. `"distributed-systems"`) |
+| `created_at` | `string` | ISO-8601 timestamp |
+
+### Example row
+
+```json
+{
+  "id": "dogfeed-2026-06-29T07-12-44-217",
+  "topic": "distributed systems",
+  "question": "What is the difference between leader election and consensus?",
+  "answer": "Leader election is a subproblem of consensus. In a system with N replicas, leader election picks one replica to coordinate writes, while consensus is the broader problem of getting N replicas to agree on a value, which includes leader election as a phase. The two are related but not identical: you can have leader election without consensus (e.g. via a coordinator service like ZooKeeper) and you can have consensus without a stable leader (multi-Paxos variants).",
+  "model": "qwen/qwen-2.5-7b-instruct:free",
+  "tokens_in": 142,
+  "tokens_out": 187,
+  "role": "pruner",
+  "source": "dogfeed-loop",
+  "topic_category": "distributed-systems",
+  "created_at": "2026-06-29T07:12:44.217Z"
+}
 ```
 
-### Fine-tune kompress-v8
+### Files in this dataset
+
+| Path | Format | Purpose |
+|---|---|---|
+| `data/loop-{ISO-timestamp}.jsonl` | JSONL | Append-only batches (one per push) |
+| `data/latest.jsonl` | JSONL | Mirror of the most recent batch — use this for streaming |
+| `data/stats.json` | JSON | Aggregate stats (refreshed per push) |
+
+> ℹ️ **Note on `latest.jsonl`** — published every `pushEvery` records, alongside the timestamped file. Always fresh.
+
+---
+
+## 3 · Run the loop locally
+
+Zero infrastructure. Runs on macOS, Linux, NixOS. Generates rows into a local SQLite, then you push manually to your own HF dataset.
 
 ```bash
-# Clone the training repo
+# Clone + dev shell
 git clone https://github.com/peterlodri-sec/ultrameshai
 cd ultrameshai
+nix develop .#dogfeed         # nix users
+# or: brew install bun sqlite jq  # non-nix users
 
-# Run fine-tuning (requires GPU)
-cargo run --release --bin kompress-train -- \
-  --dataset PeetPedro/ultrawhale-dogfood \
-  --base-model AnswerDotAI/ModernBERT-base \
-  --lambda-penalty 3.0 \
-  --epochs 3
+# Run 10 iterations against a free model
+bun packages/dogfeed/examples/basic-loop.ts
+
+# Stats
+nu scripts/dogfeed.nu stats
+
+# Doctor (verify env, keys, HF reachability)
+nu scripts/dogfeed.nu doctor
+
+# Push to your own HF dataset
+HF_TOKEN=hf_xxx \
+nu scripts/dogfeed.nu push --repo YOUR_USER/YOUR_DATASET --batch 50
+```
+
+> **Re-render this section in your terminal:** `./hf-datacard/contribute.sh generate`
+
+---
+
+## 4 · Self-host the loop (NixOS)
+
+Add to your `flake.nix` inputs + your host config. Dogfeed runs as a hardened systemd service.
+
+```nix
+# flake.nix inputs
+dogfeed.url = "github:peterlodri-sec/ultrameshai/HEAD?dir=packages/dogfeed";
+
+# flake.nix outputs (nixosModules)
+nixosModules.dogfeed = dogfeed.nixosModules.default;
+
+# your host
+{ pkgs, ... }: {
+  imports = [ inputs.dogfeed.nixosModules.default ];
+
+  peterlodri.dogfeed = {
+    enable             = true;
+    openrouterKeyFile  = "/run/secrets/dogfeed_openrouter_key";
+    hfTokenFile        = "/run/secrets/dogfeed_hf_token";
+    hfRepo             = "PeetPedro/ultrawhale-dogfood";
+    intervalSec        = 60;
+    models             = [ "qwen/qwen-2.5-7b-instruct:free" ];
+    topics             = [ "distributed systems" "machine learning fundamentals" ];
+    dailyCallLimit     = 500;
+    dailyTokenLimit    = 200000;
+    pushEvery          = 50;
+    ralphEvery         = 50;
+  };
+}
+```
+
+Sops secrets (in `secrets/dogfeed.yaml`):
+
+```yaml
+dogfeed_openrouter_key: sk-or-v1-xxx
+dogfeed_hf_token: hf_xxx
+```
+
+Then:
+
+```bash
+nixos-rebuild switch --flake .#your-host --use-remote-sudo
+systemctl status dogfeed --no-pager -l | head -20
+journalctl -u dogfeed -f
 ```
 
 ---
 
-## Ecosystem
+## 5 · Deploy your own fork
 
-This dataset is part of the **UltrameshAI** research ecosystem:
+Want your **own** mirror of the loop pushing to your own HF dataset? Three commands.
 
-| Component | Description | Link |
-|-----------|-------------|------|
-| **kompress-v8** | Trained model (149M ModernBERT) | [HuggingFace](https://huggingface.co/PeetPedro/kompress-v8) |
-| **kompress-ultra** | Context compression middleware | [GitHub](https://github.com/peterlodri-sec/kompress-ultra) |
-| **Proposal** | Integration proposal for Headroom | [proposal.vaked.dev](https://proposal.vaked.dev) |
-| **Paper** | Mathematical proof & methodology | [PDF](https://kompress.vaked.dev/paper/main.pdf) |
-| **Log Vault** | Experiment telemetry | [pocoo.vaked.dev](https://pocoo.vaked.dev) |
-| **UltrameshAI** | Core monorepo | [GitHub](https://github.com/peterlodri-sec/ultrameshai) |
+```bash
+# 1. Create the dataset
+#    https://huggingface.co/new-dataset
+
+# 2. Edit one line in your host config
+#    peterlodri.dogfeed.hfRepo = "YOUR_USER/YOUR_DATASET";
+
+# 3. Rebuild + verify
+ssh dev-cx53.tail2870dc.ts.net \
+  "cd ~/nix-base-deploy && \
+   nixos-rebuild switch --flake .#dev-cx53 --use-remote-sudo && \
+   systemctl status dogfeed --no-pager -l | head -20"
+```
 
 ---
 
-## Licensing & Citation
+## 6 · MCP for AI coding agents
 
-This dataset is released under the **[Apache 2.0 License](https://www.apache.org/licenses/LICENSE-2.0)**.
+Add this to `.mcp.json` (Claude), `~/.config/opencode/mcp.json`, or Cursor's MCP config:
 
-If you use this dataset in your research, please cite:
+```json
+{
+  "mcpServers": {
+    "ultrawhale-dogfood": {
+      "type": "stdio",
+      "command": "uvx",
+      "args": [
+        "--from", "ultrawhale-dogfood-mcp",
+        "ultrawhale-dogfood-mcp",
+        "--repo", "PeetPedro/ultrawhale-dogfood",
+        "--hf-token", "${env:HF_TOKEN}"
+      ]
+    }
+  }
+}
+```
+
+### Tools exposed
+
+| Tool | Args | Returns |
+|---|---|---|
+| `dogfeed.search` | `query, k=10` | Top-k rows by semantic + keyword match |
+| `dogfeed.filter` | `topic, role` | JSONL subset, exact match |
+| `dogfeed.sample` | `n=5, seed=42` | Deterministic sample for prompts |
+| `dogfeed.stats` | — | Row counts per topic / role / model |
+| `dogfeed.export` | `format="parquet"` | Local parquet mirror |
+| `dogfeed.prompt_pack` | `topic, n=20` | Ready-to-paste prompt pack for fine-tuning |
+
+> **Re-render this section in your terminal:** `./hf-datacard/contribute.sh mcp`
+
+---
+
+## 7 · One-shot prompts for contributors
+
+Paste any of these into Claude / Cursor / opencode. Self-contained.
+
+### A. Generate a sample matching this dataset
+
+```
+Generate one row matching the Ultrawhale Dogfood schema:
+{id, topic, question, answer, model, tokens_in, tokens_out, role,
+ source, topic_category, created_at}
+
+Topic: `container orchestration`. Role: `pruner`.
+Question ~50 tokens, answer ~200 tokens, then a compressed_answer
+~60 tokens (use kompress-ultra's Lite pass). Free model. Print the
+JSON row only, no commentary.
+```
+
+### B. Filter + analyse the dataset
+
+```
+Load PeetPedro/ultrawhale-dogfood, group by topic_category, and
+report the mean compression ratio (len(answer) / len(compressed_answer)).
+Print a markdown table sorted by row count desc, plus a one-paragraph
+narrative of which topics compress best and why.
+```
+
+### C. Self-host the loop
+
+```
+Add a new module `modules/dogfeed-local.nix` that runs the dogfeed
+loop under my user (no systemd) with a sqlite DB at
+~/.local/share/dogfeed/loop.db and pushes to my own HF dataset every
+50 records. No sops — read the OpenRouter key from
+~/.config/dogfeed/openrouter.key with mode 0600. Print the module.
+```
+
+> **Re-render this section in your terminal:** `./hf-datacard/contribute.sh prompt`
+
+---
+
+## 8 · Kompress integration
+
+Each `role: "pruner"` row's `answer` is the **kompress-ultra Lite** pass of the `generator` answer. To reproduce:
+
+```typescript
+import { compressMessage, CompressionLevel } from "kompress-ultra";
+
+const raw = "/* generator answer */";
+const compressed = compressMessage(raw, CompressionLevel.Lite);
+console.log(JSON.stringify({ raw, compressed }, null, 2));
+```
+
+The `tokens_in` / `tokens_out` counts include the kompress pipeline (tokenizer pass + Lite rewrite), so you can train on `(raw, compressed, ratio)` triples directly.
+
+See [`packages/kompress-ultra/`](https://github.com/peterlodri-sec/ultrameshai/tree/main/packages/kompress-ultra) for the engine and the [kompress-ultra vs AGENTS.md experiment](https://pocoo.vaked.dev/posts/2026-06-29-kompress-ultra-vs-agents-md.html) for known limits.
+
+---
+
+## 9 · Privacy & scrubbing
+
+Every row passes through `packages/dogfeed/src/scrub.ts` before push:
+
+| Pattern | Action | Test |
+|---|---|---|
+| Email (`a@b.c`) | REDACTED | `scrub.test.ts:redactEmail` |
+| API key prefixes (`sk-`, `hf_`, `ghp_`, `AKIA…`) | REDACTED | `scrub.test.ts:redactApiKeys` |
+| IP (`1.2.3.4`, `2001:db8::1`) | REDACTED | `scrub.test.ts:redactIps` |
+| 40+ char hex (likely hash/secret) | REDACTED | `scrub.test.ts:redactLongHex` |
+| 32+ char base64 (likely secret) | REDACTED | `scrub.test.ts:redactLongBase64` |
+| English-only filter | DROP non-en | `scrub.test.ts:englishOnly` |
+| Dedup (sqlite ngram) | DROP duplicates | `scrub.test.ts:dedup` |
+| Quality gate (length, alphanum ratio) | DROP low-quality | `scrub.test.ts:quality` |
+
+PII redaction is **lossy** — the original row is replaced, not just the field. If you find a leak, open an issue with the row id (visible in commit history) and we'll backfill the fix.
+
+---
+
+## 10 · Ecosystem & cite
+
+| Component | Description | Link |
+|---|---|---|
+| **dogfeed** | The loop that generates this corpus | [GitHub](https://github.com/peterlodri-sec/ultrameshai/tree/main/packages/dogfeed) |
+| **kompress-ultra** | Token-level compressor (Lite/Standard/Ultra) | [GitHub](https://github.com/peterlodri-sec/ultrameshai/tree/main/packages/kompress-ultra) |
+| **nix-base** | Self-host the loop as a NixOS service | [GitHub](https://github.com/peterlodri-sec/nix-base) |
+| **pocoo.vaked.dev** | Telemetry + changelog | [Blog](https://pocoo.vaked.dev) |
+| **proposal.vaked.dev** | The full design proposal | [proposal.vaked.dev](https://proposal.vaked.dev) |
+
+### Cite
 
 ```bibtex
-@article{lodri2026kompress,
-  title={Asymmetric Loss Modulation Resolves the Voting Ensemble Paradox in Learned Context-Pruning Ensembles},
-  author={Lodri, Peter},
-  journal={Vaked Research Preprints},
-  volume={2},
-  pages={112--128},
-  year={2026},
-  url={https://kompress.vaked.dev/paper/main.pdf}
+@misc{ultrawhale_dogfood_2026,
+  title  = {Ultrawhale Dogfood: a self-generated, self-hosted Q\&A corpus
+            from a continuously-running dogfeed loop},
+  author = {Lodri, Peter},
+  year   = {2026},
+  url    = {https://huggingface.co/datasets/PeetPedro/ultrawhale-dogfood},
+  note   = {Dataset; Apache-2.0; kompress-ultra applied as pruner pass}
 }
 ```
 
 ---
 
-## Privacy & Security
+## 🤝 Contribute / Self-host
 
-- **Zero PII**: Generation pipeline actively redacts credentials, private keys, and personal data
-- **No Tracking**: Cloudflare-hosted with zero advertising scripts or third-party cookies
-- **Cryptographic Attestation**: Dataset card backed by P-256 ECDSA signatures via Web Crypto API
-- **Open Telemetry**: Runtime metrics publicly logged at [pocoo.vaked.dev](https://pocoo.vaked.dev)
+Three paths, all documented above:
 
----
+1. **Run the loop** — `contribute.sh generate` (local, zero infra)
+2. **Self-host** — `contribute.sh deploy` (NixOS service, your HF repo)
+3. **Integrate as MCP** — `contribute.sh mcp` (use this dataset from your agent)
 
-## Contribute / Self-Host
+### 🐚 Contributor CLI
 
-This dataset and the full kompress pipeline are open-source. Here's how to run your own dogfeeding loop:
-
-### 1. Generate Your Own Dogfood
+A self-contained mini-CLI that prints every command a contributor needs:
 
 ```bash
-# Clone the ultrameshai repo
-git clone https://github.com/peterlodri-sec/ultrameshai
-cd ultrameshai
-
-# Install Nushell (for the dev harness)
-curl -sSf https://raw.githubusercontent.com/nushell/nushell/main/install.sh | sh
-
-# Run the dogfeeding loop (generates agent conversation logs)
-nu mesh.nu status          # Check environment
-nu mesh.nu test             # Verify everything works
+# from the ultrameshai repo root:
+./hf-datacard/contribute.sh            # full tour (5 sections)
+./hf-datacard/contribute.sh load       # just the dataset load snippet
+./hf-datacard/contribute.sh generate   # just the local generation snippet
+./hf-datacard/contribute.sh deploy     # just the deploy snippet
+./hf-datacard/contribute.sh prompt     # one-shot LLM prompts
+./hf-datacard/contribute.sh mcp        # MCP config for AI agents
+./hf-datacard/contribute.sh --raw      # machine-readable (no banners)
 ```
 
-### 2. Label with kompress-ultra
-
-```bash
-cd packages/kompress-ultra
-
-# Install dependencies
-bun install
-
-# Score and label your conversation logs
-import { scoreMessage, classifyMessage } from 'kompress-ultra';
-
-const yourLogs = [...]; // Your agent conversation history
-const labeled = yourLogs.map(msg => ({
-  text: msg.content,
-  score: scoreMessage(msg.content, msg.role, yourLogs.length),
-  label: classifyMessage(msg.content), // FACT, EVENT, INSTRUCTION, TASK
-}));
-```
-
-### 3. Fine-tune Your Own Model
-
-```bash
-# Using the HF dataset as reference format
-python train.py \
-  --dataset your-labeled-data.parquet \
-  --base-model AnswerDotAI/ModernBERT-base \
-  --lambda-penalty 3.0 \
-  --output-dir ./my-kompress-model
-```
-
-### 4. Deploy as MCP Server
-
-```bash
-cd packages/kompress-ultra/server
-
-# Configure Cloudflare Worker
-cp wrangler.toml.example wrangler.toml
-# Edit with your Cloudflare account ID
-
-# Deploy to your own domain
-bunx wrangler deploy
-
-# Your API is now live at:
-# POST /v1/compress  — compress conversations
-# POST /v1/score     — score message importance
-# GET  /v1/health    — circuit breaker status
-```
-
-### 5. Integrate into Your Agent
-
-```typescript
-// Add to your agent framework
-import { compressMessage, CompressionLevel } from 'kompress-ultra';
-
-// Before sending to LLM
-const compressed = compressMessage(
-  conversationHistory,
-  CompressionLevel.Lite
-);
-
-// Send compressed context to LLM
-await llm.chat(compressed);
-```
-
-### Docker Self-Host (Full Stack)
-
-```bash
-# Clone the full stack
-git clone https://github.com/peterlodri-sec/ultrameshai
-cd ultrameshai
-
-# Start all services
-docker-compose up -d
-
-# Services:
-# - Portail Gateway: http://localhost:8787
-# - Kompress API: http://localhost:8788
-# - Second Brain MCP: http://localhost:8789/mcp
-```
-
----
-
-## Acknowledgements
-
-This project would not exist without the incredible open-source ecosystem we build on:
-
-### Core Dependencies
-
-- **[AnswerDotAI/ModernBERT](https://github.com/AnswerDotAI/ModernBERT)** — The backbone architecture for kompress-v8. State-of-the-art encoder optimized for long-context processing.
-- **[Hugging Face](https://huggingface.co)** — Dataset hosting, model distribution, and the incredible `datasets` library that makes data loading trivial.
-- **[Cloudflare](https://cloudflare.com)** — Zero-trust hosting for our MCP servers, proposal site, and telemetry. Workers, D1, Vectorize, R2 — the entire stack.
-- **[Bun](https://bun.sh)** — Blazing-fast JavaScript runtime that powers kompress-ultra and our agent tooling.
-- **[Nushell](https://nushell.sh)** — Structured shell for our dev harness. Pipe-oriented, type-safe, and genuinely pleasant to write.
-
-### Agent Infrastructure
-
-- **[OpenCode](https://opencode.ai)** — The agent framework that runs our dogfeeding loops. Plugin architecture, MCP integration, and multi-agent orchestration.
-- **[Crush](https://github.com/charmbracelet/crush)** — The AI assistant that helped build this. Charmbracelet's engineering philosophy shows.
-- **[Tokio](https://tokio.rs)** — Async runtime for all Rust crates. The foundation of our transport and cognition layers.
-- **[Axum](https://github.com/tokio-rs/axum)** — HTTP framework for the portail gateway. Ergonomic, fast, and rock-solid.
-
-### Research Community
-
-- **[Milvus](https://milvus.io)** — Vector database for semantic memory and context circulator.
-- **[SQLite](https://sqlite.org)** — Embedded database for mempalace and local state. Sometimes the simplest tool is the best tool.
-- **[PyTorch](https://pytorch.org)** — Training framework for kompress-v8 fine-tuning.
-- **[HuggingFace Transformers](https://github.com/huggingface/transformers)** — Model loading, tokenization, and inference utilities.
-
-### Inspiration
-
-- The **Voting Ensemble Paradox** paper that started it all — understanding why conservative voting fails in learned pruning ensembles.
-- The **agent coding community** — Open-source agents, coding assistants, and the broader movement toward autonomous development tools.
-- **Peter's cats** — Who supervised from the keyboard during late-night dogfeeding runs.
+Every section is **self-contained** — copy the block you need, skip the rest. The same blocks are also embedded in the [notebook sections above](#-table-of-contents) so you can grab them from the HF UI.
 
 ---
 
 <div align="center">
 
-**Built by:** [Crush](https://github.com/charmbracelet/crush) + [OpenCode](https://opencode.ai) agent loops
+**Built by:** [Crush](https://github.com/charmbracelet/crush) + [opencode](https://opencode.ai) agent loops · [NixOS](https://nixos.org) self-hosted
 
-*15 min, 3 rounds, fully autonomous*
+*A stream, not a snapshot. The loop keeps running.*
 
 [![Star on GitHub](https://img.shields.io/github/stars/peterlodri-sec/ultrameshai?style=social)](https://github.com/peterlodri-sec/ultrameshai)
-[![Follow on HuggingFace](https://img.shields.io/badge/Follow-%40PeetPedro-FFD21E?style=social)](https://huggingface.co/PeetPedro)
+[![Follow on HuggingFace](https://img.shields.io/badge/Follow-%40PeetPedro-FFD21E?style=social&logo=huggingface)](https://huggingface.co/PeetPedro)
 
 </div>

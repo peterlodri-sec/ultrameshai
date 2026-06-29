@@ -47,7 +47,8 @@ describe("recordsToJSONL", () => {
     const jsonl = recordsToJSONL(SAMPLE_RECORDS);
     const lines = jsonl.split("\n");
     const second = JSON.parse(lines[1]);
-    expect(second.answer).toBe("RL: trains agents via reward.");
+    expect(second.answer).toContain("Reinforcement learning");
+    expect(second.compressed_answer).toBe("RL: trains agents via reward.");
     expect(second.role).toBe("pruner");
   });
 
