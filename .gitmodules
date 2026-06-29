@@ -1,0 +1,3 @@
+[submodule "packages/kompress-ultra"]
+	path = packages/kompress-ultra
+	url = https://github.com/peterlodri-sec/kompress-ultra.git
