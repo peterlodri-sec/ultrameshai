@@ -29,7 +29,6 @@ configs:
     path: data/loop-*.jsonl
   - split: latest
     path: data/latest.jsonl
-license: apache-2.0
 ---
 
 <div align="center">
@@ -644,7 +643,7 @@ This dataset ships from a NixOS systemd service using `OIDC` trust via the [HF T
 
 | Where | How |
 |---|---|
-| **Trusted publisher** (HF side) | [Settings → Trusted publishers](https://huggingface.co/settings/trusted-publishers) → add a `GitHub Actions` publisher for `peterlodri-sec/ultrameshai` workflow `dogfeed-publish.yml` |
+| **Trusted publisher** (HF side) | [Settings → Trusted publishers](https://huggingface.co/settings/trusted-publishers) → add a `GitHub Actions` publisher for `peterlodri-sec/ultrameshai` workflow `.github/workflows/publish-dataset-card.yml` |
 | **GitHub OIDC** | Workflow requests an OIDC token from `https://token.actions.githubusercontent.com` and exchanges it for an HF write token via HF's `POST /api/trusted-publishers/token` |
 | **Dev-cx53 fallback** | The systemd service still uses a long-lived `HF_TOKEN` from sops (because dev-cx53 isn't a GitHub Actions runner). The trusted-publisher path is the **secondary** path used by CI runs and by `nix run .#dogfeed-publish` from the Mac. |
 | **Mac** | The Mac is the primary build host; `nu scripts/dogfeed.nu push` reads the user's HF token from `~/.config/huggingface/token` (or `HF_TOKEN` env) — trusted-publisher is optional on the Mac. |
