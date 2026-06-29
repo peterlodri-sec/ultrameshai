@@ -1,0 +1,26 @@
+{
+  "name": "dogfeed",
+  "version": "0.1.0",
+  "description": "Self-improving data generation loop for LLM agent training",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "test": "bun test",
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "typecheck": "tsc --noEmit",
+    "run": "bun src/index.ts"
+  },
+  "keywords": ["llm", "training-data", "dogfeed", "self-improving", "huggingface"],
+  "license": "MIT",
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.5.0"
+  },
+  "peerDependencies": {
+    "kompress-ultra": "workspace:*"
+  },
+  "peerDependenciesMeta": {
+    "kompress-ultra": { "optional": true }
+  }
+}
