@@ -30,6 +30,8 @@ When you talk to an AI for a long time, the chat history gets huge. This makes t
 To resolve the **Voting Ensemble Paradox** where conservative voting collapses stratum-wise recall:
 $$I_{\text{ens}}(x) = \bigvee_{i=1}^N I_i(x) = I_{i^*_k}(x)$$
 
+> **Notation:** $i^*_k = \arg\min_{i \in [N]} \text{recall}_i$ denotes the weakest voter on each stratum — the voter whose recall sets the floor for the ensemble under AND-voting.
+
 We apply an asymmetric loss penalty ($\lambda = 3.0$) on the false eviction of critical-syntactic tokens ($T_{\text{crit}}$):
 $$\mathcal{L}_i = \mathcal{L}_{\text{base}}(\theta_i) + \lambda \cdot \frac{1}{|T_{\text{crit}}|} \sum_{x \in T_{\text{crit}}} I^{\text{fe}}_i(x)$$
 

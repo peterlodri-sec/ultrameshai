@@ -10,7 +10,7 @@ def main [] {
     print "  nu mesh.nu serve        # Safely restart the local Rust portail gateway on port 8787"
     print "  nu mesh.nu test         # Run portail Rust tests and ECL linter"
     print "  nu mesh.nu build        # Compile Tailwind v4 CSS and sync assets to HF Space"
-    print "  nu mesh.nu deploy -p    # Build, sync, and deploy to GitHub and Hugging Face"
+    print "  nu mesh.nu deploy       # Build, sync, and deploy to GitHub and Hugging Face"
 }
 
 # Check the status of the local gateway, Git repositories, and environment variables
@@ -56,8 +56,15 @@ export def "main status" [] {
 # Safely restart the local Rust portail gateway on port 8787
 export def "main serve" [] {
     print $"(ansi cyan_bold)=== Starting Portail Gateway ===(ansi reset)"
-    let portail_dir = "/Users/lodripeter/workspace/peterlodri-sec/portail"
-    
+
+    # Derive portail directory relative to workspace root
+    let workspace_dir = (git rev-parse --show-toplevel)
+    let portail_dir = $"($workspace_dir | path dirname)/portail"
+    if not ($portail_dir | path exists) {
+        print -e $"(ansi red_bold)Error: portail directory not found at ($portail_dir)(ansi reset)"
+        exit 1
+    }
+
     # Kill existing process on 8787
     print $"(ansi -e '90m')  Clearing port 8787...(ansi reset)"
     let pid = (do { lsof -t -i:8787 } | complete | get stdout | str trim)
@@ -70,15 +77,11 @@ export def "main serve" [] {
     # Run cargo serve
     print $"(ansi blue)  Spawning portail server... (ansi reset)"
     cd $portail_dir
-    # Run in background via Nu's spawn/exec behavior or notify
     print $"(ansi yellow)  Note: Server launched in background. Check logs at ($portail_dir)/logs/.(ansi reset)"
-    
-    # We use a background task via shell execution
-    # In Nushell, we can run it as an asynchronous job or let the agent runner manage it
+
     let log_dir = $"($portail_dir)/logs"
     mkdir $log_dir
-    
-    # Run the server
+
     with-env { PORTAIL_LOG_DIR: $log_dir } {
         run-external "cargo" "run" "--manifest-path" $"($portail_dir)/Cargo.toml" "--bin" "portail" "serve"
     }
@@ -96,6 +99,7 @@ export def "main test" [] {
     if $test_res.exit_code != 0 {
         print -e $"(ansi red_bold)Error: Portail tests failed!(ansi reset)"
         print -e $test_res.stdout
+        print -e $test_res.stderr
         exit 1
     }
     print $"(ansi green)✓ Portail tests passed.(ansi reset)"
