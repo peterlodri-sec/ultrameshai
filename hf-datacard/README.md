@@ -33,6 +33,8 @@ license: apache-2.0
 
 <div align="center">
 
+<img src="logo.svg" alt="Ultrawhale Dogfood" width="160" height="160"/>
+
 # 🐳 Ultrawhale Dogfood
 
 ### Self-generated, self-hosted, silver-label Q&A corpus from a continuously-running dogfeed loop
@@ -44,6 +46,8 @@ license: apache-2.0
 [![dogfeed loop](https://img.shields.io/badge/dogfeed-systemd-10B981?style=for-the-badge&logo=linux&logoColor=white)](https://github.com/peterlodri-sec/ultrameshai/tree/main/packages/dogfeed)
 
 **[📊 Live Tracker](#-live-tracker)** · **[🚀 Data Studio](https://huggingface.co/datasets/PeetPedro/ultrawhale-dogfood/viewer)** · **[🤝 Contribute](#-contribute--self-host)** · **[🐚 Contributor CLI](#-contributor-cli)**
+
+*Logo: ultrawhale swims in a 5-ring data loop, breathing HF-yellow samples into the dark. Credits to [pocoo.vaked.dev](https://pocoo.vaked.dev) for the visual language.*
 
 </div>
 
@@ -61,6 +65,28 @@ pip install datasets
 python -c "from datasets import load_dataset; \
 ds = load_dataset('PeetPedro/ultrawhale-dogfood', split='latest', streaming=True); \
 print(next(iter(ds)))"
+```
+
+---
+
+## 🎨 Visual Identity
+
+The dataset ships with a custom logo. The whale swims in a 5-ring data loop, breathing HF-yellow samples into the dark, eye on the stream.
+
+<table align="center">
+  <tr>
+    <td align="center"><img src="logo.svg" alt="Ultrawhale Dogfood logo" width="120"/><br/><b>ultrawhale-dogfood</b><br/><sub>this dataset</sub></td>
+    <td align="center" valign="middle"><b>⇆ visual family</b></td>
+    <td align="center"><img src="https://pocoo.vaked.dev/assets/logo.svg" alt="pocoo.vaked.dev logo" width="120"/><br/><b>pocoo</b><br/><sub>sister blog at <a href="https://pocoo.vaked.dev">pocoo.vaked.dev</a></sub></td>
+  </tr>
+</table>
+
+**Visual language shared** (and intentionally so): dark gradient background, recursion rings, geometric centerpiece, cyan + green pulse, monospace wordmark. The whale adds the streaming-data metaphor and the HF-yellow accent.
+
+To use the logo in a third-party readme:
+```markdown
+<img src="https://huggingface.co/datasets/PeetPedro/ultrawhale-dogfood/resolve/main/logo.svg"
+     alt="Ultrawhale Dogfood" width="160"/>
 ```
 
 ---
