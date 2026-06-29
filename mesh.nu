@@ -29,11 +29,14 @@ export def "main status" [] {
     let hf_token_status = if ($env.HF_TOKEN? | is-empty) { $"(ansi red)NOT SET(ansi reset)" } else { $"(ansi green)SET(ansi reset)" }
     print $"HF_TOKEN: ($hf_token_status)"
 
+    # Derive workspace root from this script's location
+    let workspace_dir = (git rev-parse --show-toplevel)
+    
     # 3. Check Git Statuses
     let repos = [
-        { name: "ultrameshai", path: "/Users/lodripeter/workspace/peterlodri-sec/ultrameshai" },
-        { name: "portail", path: "/Users/lodripeter/workspace/peterlodri-sec/portail" },
-        { name: "proposal.vaked.dev", path: "/Users/lodripeter/workspace/peterlodri-sec/proposal.vaked.dev" }
+        { name: "ultrameshai", path: $workspace_dir },
+        { name: "portail", path: $"($workspace_dir | path dirname)/portail" },
+        { name: "proposal.vaked.dev", path: $"($workspace_dir | path dirname)/proposal.vaked.dev" }
     ]
 
     print $"\n(ansi blue)Git Repositories:(ansi reset)"
@@ -87,7 +90,7 @@ export def "main test" [] {
     
     # 1. Run Portail Tests
     print $"(ansi blue)[1/2] Running portail Rust tests...(ansi reset)"
-    let portail_dir = "/Users/lodripeter/workspace/peterlodri-sec/portail"
+    let portail_dir = (git rev-parse --show-toplevel | path dirname | path join "portail")
     cd $portail_dir
     let test_res = (do { cargo test } | complete)
     if $test_res.exit_code != 0 {
@@ -99,7 +102,7 @@ export def "main test" [] {
 
     # 2. Run ECL Linter
     print $"\n(ansi blue)[2/2] Running ECL Linter...(ansi reset)"
-    let ultramesh_dir = "/Users/lodripeter/workspace/peterlodri-sec/ultrameshai"
+    let ultramesh_dir = (git rev-parse --show-toplevel)
     cd $ultramesh_dir
     if ("scripts/lint-ecl.nu" | path exists) {
         let lint_res = (do { nu scripts/lint-ecl.nu } | complete)
@@ -118,7 +121,7 @@ export def "main test" [] {
 
 # Compile Tailwind v4 CSS and sync assets to HF Space
 export def "main build" [] {
-    let proposal_dir = "/Users/lodripeter/workspace/peterlodri-sec/proposal.vaked.dev"
+    let proposal_dir = (git rev-parse --show-toplevel | path dirname | path join "proposal.vaked.dev")
     let build_engine = $"($proposal_dir)/build.nu"
     
     if ($build_engine | path exists) {
@@ -133,7 +136,7 @@ export def "main build" [] {
 export def "main deploy" [
     --message (-m): string = "chore: production build and deploy" # Commit message
 ] {
-    let proposal_dir = "/Users/lodripeter/workspace/peterlodri-sec/proposal.vaked.dev"
+    let proposal_dir = (git rev-parse --show-toplevel | path dirname | path join "proposal.vaked.dev")
     let build_engine = $"($proposal_dir)/build.nu"
     
     if ($build_engine | path exists) {
