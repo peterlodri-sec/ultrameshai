@@ -102,6 +102,71 @@ Use in a third-party readme:
 
 ---
 
+## 🚀 ULTRA-ONESHOT-KICKSTART
+
+> *the ultra-way of doing looping, my favourites, "self-referential-self-recursive-dense-prompts" :D, I have a problem with naming I know! — peter*
+
+Paste this into **any** coding agent (Claude / opencode / Cursor / aider / Cline) — works from zero context, from anywhere in the dogfeed-loop. ~280 tokens. Self-bootstrapping. End every reply with the loop-state marker.
+
+```markdown
+You are joining **dogfeed-loop** — a self-improving silver-label data
+generation loop in the ultrameshai ecosystem. Read the README (linked
+in the **sources** below) BEFORE making changes. End every reply with
+**🐳 loop-state**: one of `{generating, ready, blocked, done}`.
+
+## Sources (read in order, ~5 min)
+1. hf-datacard — https://huggingface.co/datasets/PeetPedro/ultrawhale-dogfood
+2. ultrameshai — https://github.com/peterlodri-sec/ultrameshai (this repo)
+3. kompress-ultra — https://github.com/peterlodri-sec/ultrameshai/tree/main/packages/kompress-ultra
+4. nix-base (dev-cx53 host) — https://github.com/peterlodri-sec/nix-base
+5. blog (changelog + rationale) — https://pocoo.vaked.dev
+
+## Loop primitives
+- **Topic** (string) — current question category
+- **Question** (≤ 50 tok) — generated prompt
+- **Answer** (raw, 100–300 tok) — free-model output
+- **compressed_answer** (≤ 60 tok) — kompress-ultra Lite pass
+- **role**: `generator` (raw only) or `pruner` (also has compressed)
+- **model** — OpenRouter FQN, e.g. `qwen/qwen-2.5-7b-instruct:free`
+
+## One-shot commands (copy-paste ready)
+- `bun test` — 48 tests must pass
+- `nu scripts/dogfeed.nu stats` — live loop stats
+- `nu scripts/dogfeed.nu doctor` — env + keys + HF reachability
+- `nu scripts/dogfeed.nu push --repo OWNER/REPO --batch 50`
+- `nix develop .#dogfeed` — reproducible dev shell
+- `ssh dev-cx53.tail2870dc.ts.net "journalctl -u dogfeed -n 30"`
+- `gh pr create --base main` for any change
+
+## Hard rules
+1. **NEVER** edit `flake.lock` by hand — use `nix flake update`.
+2. **NEVER** push without `bun test` green.
+3. **NEVER** write a row without PII scrub (`scrub.ts` rules).
+4. **ALWAYS** mirror `data/latest.jsonl` on every push.
+5. **ALWAYS** end replies with `🐳 loop-state: <state>`.
+6. **ALWAYS** reference a real HF commit when claiming "pushed".
+7. **NEVER** store API keys in git. sops-nix only.
+8. **ALWAYS** ship the smallest viable diff.
+
+## Schema (source of truth: `packages/dogfeed/src/publish.ts`)
+```
+{id, topic, question, answer, compressed_answer?, model, tokens_in,
+ tokens_out, role, source:"dogfeed-loop", topic_category, created_at}
+```
+
+## If you are blocked
+- Re-read the README (top of `hf-datacard/README.md`).
+- Run `nu scripts/dogfeed.nu doctor`.
+- Search issues: `gh issue list --label dogfeed --state all`.
+- Open an issue with the `blocked` label and the failing command.
+
+**🐳 loop-state: ready**
+```
+
+> Same content lives at section **6.5** below, and in the CLI: `./hf-datacard/contribute.sh kickstart`.
+
+---
+
 ## 📋 TL;DR
 
 A real, running **dogfeed loop** (a NixOS systemd service on a Hetzner cx53) calls free OpenRouter models every 60s, scrubs PII, deduplicates, compresses the answer with `kompress-ultra`, and publishes JSONL batches here. **This is not a one-shot dataset — it's a stream you can subscribe to.**
