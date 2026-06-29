@@ -1,6 +1,7 @@
 ---
 title: Ultrawhale Dogfood
 license: apache-2.0
+doi: 10.57967/hf/9364
 language:
 - en
 tags:
@@ -93,6 +94,7 @@ Use in a third-party readme:
 [![kompress-ultra](https://img.shields.io/badge/powered%20by-kompress--ultra-8B5CF6?style=for-the-badge)](https://github.com/peterlodri-sec/kompress-ultra)
 [![Self-Hosted](https://img.shields.io/badge/self--hosted-NixOS-5277C3?style=for-the-badge&logo=nixos&logoColor=white)](https://github.com/peterlodri-sec/nix-base)
 [![dogfeed loop](https://img.shields.io/badge/dogfeed-systemd-10B981?style=for-the-badge&logo=linux&logoColor=white)](https://github.com/peterlodri-sec/ultrameshai/tree/main/packages/dogfeed)
+[![DOI](https://img.shields.io/badge/DOI-10.57967%2Fhf%2F9364-FF6B00?style=for-the-badge&logo=doi&logoColor=white)](https://doi.org/10.57967/hf/9364)
 
 **[📊 Live Tracker](#-live-tracker)** · **[🚀 Data Studio](https://huggingface.co/datasets/PeetPedro/ultrawhale-dogfood/viewer)** · **[🤝 Contribute](#-contribute--self-host)** · **[🐚 Contributor CLI](#-contributor-cli)**
 
@@ -190,6 +192,7 @@ print(next(iter(ds)))"
 02 · Inline TOC (this block)
 03 · Visual Identity
 04 · Live Tracker
+04.5 Mathematical Foundation (KaTeX, HF-correct)
 05 · Notebook sections
        1. Load the dataset
        2. Schema reference
@@ -230,6 +233,57 @@ To use the logo in a third-party readme:
 <img src="https://huggingface.co/datasets/PeetPedro/ultrawhale-dogfood/resolve/main/logo.svg"
      alt="Ultrawhale Dogfood" width="160"/>
 ```
+
+---
+
+## 🧮 Mathematical Foundation
+
+The training targets in this dataset are generated under an asymmetric loss formulation that resolves the **Voting Ensemble Paradox**. Math renders with KaTeX on HF — inline as `\(...\)`, block as `$$...$$`.
+
+### The paradox
+
+Under unanimity-to-keep (AND) voting, the ensemble eviction indicator equals the pointwise maximum of the individual voter indicators:
+
+$$
+I_{\text{ens}}(x) = \bigvee_{i=1}^{N} I_i(x) = I_{i^*_k}(x)
+$$
+
+> **Notation:** \(i^*_k = \arg\min_{i \in [N]} \text{recall}_i\) — the weakest voter on each stratum sets the ensemble recall floor.
+
+### The fix
+
+An asymmetric loss penalty (\(\lambda = 3.0\)) on false eviction of critical-syntactic tokens (\(T_{\text{crit}}\)):
+
+$$
+\mathcal{L}_i \;=\; \mathcal{L}_{\text{base}}(\theta_i) \;+\; \lambda \cdot \frac{1}{|T_{\text{crit}}|} \sum_{x \in T_{\text{crit}}} I^{\text{fe}}_i(x)
+$$
+
+### What is \(T_{\text{crit}}\)?
+
+The **critical-syntactic safety floor** protects tokens that are essential for code correctness:
+
+| Token type | Examples |
+|---|---|
+| File paths | `src/auth.rs`, `lib/utils.ts` |
+| Commands | `cargo test`, `bun install` |
+| IP addresses | `100.64.0.1` |
+| Secrets | `{{SECRET_KEY}}` |
+| Docker hashes | `sha256:d8a5a...` |
+| Memory addresses | `0x7ffee3...` |
+
+### How this dataset maps to the math
+
+| Math symbol | Where it shows up in the dataset |
+|---|---|
+| \(x\) | one token in a row's `answer` field |
+| \(I_i(x)\) | kompress-ultra's keep/evict decision (per token) |
+| \(I_{\text{ens}}(x)\) | the `pruner` row's `compressed_answer` after Lite pass |
+| \(T_{\text{crit}}\) | the scrub.ts regex set + kompress-ultra's safety floor |
+| \(\lambda = 3.0\) | kompress-ultra's `asymmetricPenalty` config (see paper) |
+
+> **Why the votes of 1-3 free OpenRouter models matter:** the Lite pass treats each `answer` as the "ensemble" of N independent cheap-model generations on the same `(topic, question)` key. The asymmetry penalty guarantees \(T_{\text{crit}}\) tokens survive the vote even when a single model would have evicted them. Every `role: "pruner"` row in this dataset is a concrete witness to that guarantee.
+
+Full math + proofs: [kompress.vaked.dev/paper/main.pdf](https://kompress.vaked.dev/paper/main.pdf).
 
 ---
 
@@ -630,6 +684,7 @@ PII redaction is **lossy** — the original row is replaced, not just the field.
 | **nix-base** | Self-host the loop as a NixOS service | [GitHub](https://github.com/peterlodri-sec/nix-base) |
 | **pocoo.vaked.dev** | Telemetry + changelog | [Blog](https://pocoo.vaked.dev) |
 | **proposal.vaked.dev** | The full design proposal | [proposal.vaked.dev](https://proposal.vaked.dev) |
+| **DOI** | Cite this dataset | [10.57967/hf/9364](https://doi.org/10.57967/hf/9364) |
 
 ### Cite
 
@@ -639,6 +694,7 @@ PII redaction is **lossy** — the original row is replaced, not just the field.
             from a continuously-running dogfeed loop},
   author = {Lodri, Peter},
   year   = {2026},
+  doi    = {10.57967/hf/9364},
   url    = {https://huggingface.co/datasets/PeetPedro/ultrawhale-dogfood},
   note   = {Dataset; Apache-2.0; kompress-ultra applied as pruner pass}
 }
