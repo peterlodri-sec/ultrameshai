@@ -132,6 +132,7 @@ print(next(iter(ds)))"
        4. Self-host the loop (NixOS)
        5. Deploy your own fork
        6. MCP for AI coding agents
+       6.5 Ultra-oneshot kickstart prompt   ← paste into any agent
        7. One-shot prompts for contributors
        8. Kompress integration
        9. Privacy & scrubbing
@@ -199,6 +200,7 @@ Each section is a **self-contained notebook block** — copy the snippet, skip t
 | 4 | [Self-host the loop](#4--self-host-the-loop-nixos) | `contribute.sh deploy` |
 | 5 | [Deploy your own fork](#5--deploy-your-own-fork) | `contribute.sh deploy` |
 | 6 | [MCP for AI coding agents](#6--mcp-for-ai-coding-agents) | `contribute.sh mcp` |
+| 6.5 | [Ultra-oneshot kickstart prompt](#65--ultra-oneshot-kickstart-prompt) | `contribute.sh kickstart` |
 | 7 | [One-shot prompts](#7--one-shot-prompts-for-contributors) | `contribute.sh prompt` |
 | 8 | [Kompress integration](#8--kompress-integration) | code block |
 | 9 | [Privacy & scrubbing](#9--privacy--scrubbing) | static table |
@@ -414,6 +416,69 @@ Add this to `.mcp.json` (Claude), `~/.config/opencode/mcp.json`, or Cursor's MCP
 
 ---
 
+## 6.5 · Ultra-oneshot kickstart prompt
+
+> **The entrypoint.** Paste this into any coding agent (Claude / opencode / Cursor / aider / Cline) — works from zero context, from anywhere in the dogfeed-loop. ~280 tokens. Self-bootstrapping. End every reply with the loop-state marker.
+
+```markdown
+You are joining **dogfeed-loop** — a self-improving silver-label data
+generation loop in the ultrameshai ecosystem. Read the README (linked
+in the **sources** below) BEFORE making changes. End every reply with
+**🐳 loop-state**: one of `{generating, ready, blocked, done}`.
+
+## Sources (read in order, ~5 min)
+1. hf-datacard — https://huggingface.co/datasets/PeetPedro/ultrawhale-dogfood
+2. ultrameshai — https://github.com/peterlodri-sec/ultrameshai (this repo)
+3. kompress-ultra — https://github.com/peterlodri-sec/ultrameshai/tree/main/packages/kompress-ultra
+4. nix-base (dev-cx53 host) — https://github.com/peterlodri-sec/nix-base
+5. blog (changelog + rationale) — https://pocoo.vaked.dev
+
+## Loop primitives
+- **Topic** (string) — current question category
+- **Question** (≤ 50 tok) — generated prompt
+- **Answer** (raw, 100–300 tok) — free-model output
+- **compressed_answer** (≤ 60 tok) — kompress-ultra Lite pass
+- **role**: `generator` (raw only) or `pruner` (also has compressed)
+- **model** — OpenRouter FQN, e.g. `qwen/qwen-2.5-7b-instruct:free`
+
+## One-shot commands (copy-paste ready)
+- `bun test` — 48 tests must pass
+- `nu scripts/dogfeed.nu stats` — live loop stats
+- `nu scripts/dogfeed.nu doctor` — env + keys + HF reachability
+- `nu scripts/dogfeed.nu push --repo OWNER/REPO --batch 50`
+- `nix develop .#dogfeed` — reproducible dev shell
+- `ssh dev-cx53.tail2870dc.ts.net "journalctl -u dogfeed -n 30"`
+- `gh pr create --base main` for any change
+
+## Hard rules
+1. **NEVER** edit `flake.lock` by hand — use `nix flake update`.
+2. **NEVER** push without `bun test` green.
+3. **NEVER** write a row without PII scrub (`scrub.ts` rules).
+4. **ALWAYS** mirror `data/latest.jsonl` on every push.
+5. **ALWAYS** end replies with `🐳 loop-state: <state>`.
+6. **ALWAYS** reference a real HF commit when claiming "pushed".
+7. **NEVER** store API keys in git. sops-nix only.
+8. **ALWAYS** ship the smallest viable diff.
+
+## Schema (source of truth: `packages/dogfeed/src/publish.ts`)
+```
+{id, topic, question, answer, compressed_answer?, model, tokens_in,
+ tokens_out, role, source:"dogfeed-loop", topic_category, created_at}
+```
+
+## If you are blocked
+- Re-read the README (top of `hf-datacard/README.md`).
+- Run `nu scripts/dogfeed.nu doctor`.
+- Search issues: `gh issue list --label dogfeed --state all`.
+- Open an issue with the `blocked` label and the failing command.
+
+**🐳 loop-state: ready**
+```
+
+> **Re-render this section in your terminal:** `./hf-datacard/contribute.sh kickstart`
+
+---
+
 ## 7 · One-shot prompts for contributors
 
 Paste any of these into Claude / Cursor / opencode. Self-contained.
@@ -530,13 +595,14 @@ A self-contained mini-CLI that prints every command a contributor needs:
 
 ```bash
 # from the ultrameshai repo root:
-./hf-datacard/contribute.sh            # full tour (5 sections)
-./hf-datacard/contribute.sh load       # just the dataset load snippet
-./hf-datacard/contribute.sh generate   # just the local generation snippet
-./hf-datacard/contribute.sh deploy     # just the deploy snippet
-./hf-datacard/contribute.sh prompt     # one-shot LLM prompts
-./hf-datacard/contribute.sh mcp        # MCP config for AI agents
-./hf-datacard/contribute.sh --raw      # machine-readable (no banners)
+./hf-datacard/contribute.sh             # full tour (6 sections)
+./hf-datacard/contribute.sh load        # just the dataset load snippet
+./hf-datacard/contribute.sh generate    # just the local generation snippet
+./hf-datacard/contribute.sh deploy      # just the deploy snippet
+./hf-datacard/contribute.sh prompt      # one-shot LLM prompts
+./hf-datacard/contribute.sh mcp         # MCP config for AI agents
+./hf-datacard/contribute.sh kickstart   # ultra-oneshot entrypoint for any agent
+./hf-datacard/contribute.sh --raw       # machine-readable (no banners)
 ```
 
 Every section is **self-contained** — copy the block you need, skip the rest. The same blocks are also embedded in the [notebook sections above](#-table-of-contents) so you can grab them from the HF UI.

@@ -11,6 +11,7 @@
 #   ./hf-datacard/contribute.sh deploy     # just the deploy snippet
 #   ./hf-datacard/contribute.sh prompt     # one-shot LLM prompts for contributors
 #   ./hf-datacard/contribute.sh mcp        # MCP config for AI coding agents
+#   ./hf-datacard/contribute.sh kickstart  # ultra-oneshot entrypoint for any coding agent
 #   ./hf-datacard/contribute.sh --raw      # machine-readable (no banners)
 #
 # https://huggingface.co/datasets/PeetPedro/ultrawhale-dogfood
@@ -25,7 +26,7 @@ SECTION="all"
 for arg in "$@"; do
   case "$arg" in
     --raw) RAW=1 ;;
-    load|generate|deploy|prompt|mcp|all) SECTION="$arg" ;;
+    load|generate|deploy|prompt|mcp|kickstart|all) SECTION="$arg" ;;
     -h|--help)
       sed -n '2,17p' "$0" | sed 's/^# \{0,1\}//'
       exit 0
@@ -162,6 +163,69 @@ JSON
 TEXT
 }
 
+section_kickstart() {
+  hr "ultra-oneshot-kickstart prompt (works from anywhere)"
+  code "markdown"
+  cat <<'PROMPT'
+# ULTRA-ONESHOT-KICKSTART — Ultrawhale Dogfood entrypoint
+# Paste this into ANY coding agent (Claude / opencode / Cursor / aider / Cline)
+# Works from zero context. ~280 tokens. Self-bootstrapping.
+
+You are joining **dogfeed-loop** — a self-improving silver-label data
+generation loop in the ultrameshai ecosystem. Read the README (linked
+in the **sources** below) BEFORE making changes. End every reply with
+**🐳 loop-state**: one of `{generating, ready, blocked, done}`.
+
+## Sources (read in order, ~5 min)
+1. hf-datacard — https://huggingface.co/datasets/PeetPedro/ultrawhale-dogfood
+2. ultrameshai — https://github.com/peterlodri-sec/ultrameshai (this repo)
+3. kompress-ultra — https://github.com/peterlodri-sec/ultrameshai/tree/main/packages/kompress-ultra
+4. nix-base (dev-cx53 host) — https://github.com/peterlodri-sec/nix-base
+5. blog (changelog + rationale) — https://pocoo.vaked.dev
+
+## Loop primitives
+- **Topic** (string) — current question category
+- **Question** (≤ 50 tok) — generated prompt
+- **Answer** (raw, 100–300 tok) — free-model output
+- **compressed_answer** (≤ 60 tok) — kompress-ultra Lite pass
+- **role**: `generator` (raw only) or `pruner` (also has compressed)
+- **model** — OpenRouter FQN, e.g. `qwen/qwen-2.5-7b-instruct:free`
+
+## One-shot commands (copy-paste ready)
+- `bun test` — 48 tests must pass
+- `nu scripts/dogfeed.nu stats` — live loop stats
+- `nu scripts/dogfeed.nu doctor` — env + keys + HF reachability
+- `nu scripts/dogfeed.nu push --repo OWNER/REPO --batch 50`
+- `nix develop .#dogfeed` — reproducible dev shell
+- `ssh dev-cx53.tail2870dc.ts.net "journalctl -u dogfeed -n 30"`
+- `gh pr create --base main` for any change
+
+## Hard rules
+1. **NEVER** edit `flake.lock` by hand — use `nix flake update`.
+2. **NEVER** push without `bun test` green.
+3. **NEVER** write a row without PII scrub (`scrub.ts` rules).
+4. **ALWAYS** mirror `data/latest.jsonl` on every push.
+5. **ALWAYS** end replies with `🐳 loop-state: <state>`.
+6. **ALWAYS** reference a real HF commit when claiming "pushed".
+7. **NEVER** store API keys in git. sops-nix only.
+8. **ALWAYS** ship the smallest viable diff.
+
+## Schema (source of truth: `packages/dogfeed/src/publish.ts`)
+```
+{id, topic, question, answer, compressed_answer?, model, tokens_in,
+ tokens_out, role, source:"dogfeed-loop", topic_category, created_at}
+```
+
+## If you are blocked
+- Re-read the README (top of `hf-datacard/README.md`).
+- Run `nu scripts/dogfeed.nu doctor`.
+- Search issues: `gh issue list --label dogfeed --state all`.
+- Open an issue with the `blocked` label and the failing command.
+
+**🐳 loop-state: ready**
+PROMPT
+}
+
 case "$SECTION" in
   all)
     section_load
@@ -169,21 +233,23 @@ case "$SECTION" in
     section_deploy
     section_prompt
     section_mcp
+    section_kickstart
     hr "end"
     [ "$RAW" -eq 1 ] || cat <<'NOTE'
 
 Every section above is self-contained — copy the block you need, skip the rest.
 Run with `./hf-datacard/contribute.sh <section>` to print just one.
 
-  Sections: load | generate | deploy | prompt | mcp
+  Sections: load | generate | deploy | prompt | mcp | kickstart
   Flags:    --raw (no banners), -h (this help)
 
 💘 Generated with Crush
 NOTE
     ;;
-  load)     section_load ;;
-  generate) section_generate ;;
-  deploy)   section_deploy ;;
-  prompt)   section_prompt ;;
-  mcp)      section_mcp ;;
+  load)      section_load ;;
+  generate)  section_generate ;;
+  deploy)    section_deploy ;;
+  prompt)    section_prompt ;;
+  mcp)       section_mcp ;;
+  kickstart) section_kickstart ;;
 esac
