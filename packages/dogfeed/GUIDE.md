@@ -4,9 +4,38 @@
 
 ## Prerequisites
 
-- [Bun](https://bun.sh) runtime
+- [Bun](https://bun.sh) runtime (or Nix — see below)
 - An OpenRouter API key (free tier works) and/or a HuggingFace token
 - (Optional) A HuggingFace dataset repo for publishing
+
+## Nix Setup (Recommended)
+
+The easiest way to get a reproducible environment:
+
+```bash
+# From the ultrameshai repo root
+nix develop .#dogfeed
+
+# Or standalone (from packages/dogfeed/)
+nix develop
+
+# Both give you: bun, nodejs, sqlite, jq, curl, git
+```
+
+### Nushell Harness
+
+The project includes a nushell harness for all dogfeed operations:
+
+```bash
+nu scripts/dogfeed.nu help             # show all commands
+nu scripts/dogfeed.nu doctor           # check config + connectivity
+nu scripts/dogfeed.nu run              # start the loop
+nu scripts/dogfeed.nu run --ralph      # with Ralph reflection
+nu scripts/dogfeed.nu stats            # show loop statistics
+nu scripts/dogfeed.nu test-llm         # test LLM connection
+nu scripts/dogfeed.nu export           # export to JSONL
+nu scripts/dogfeed.nu push             # manual push to HuggingFace
+```
 
 ## Quick Start
 

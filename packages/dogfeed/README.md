@@ -17,8 +17,18 @@ Topic → LLM → Scrub → DB → Publish → HuggingFace
 ## Quick Start
 
 ```bash
+# Option 1: Bun
 cd packages/dogfeed
 bun install
+OPENROUTER_KEY=sk-... bun src/index.ts
+
+# Option 2: Nix (reproducible)
+nix develop .#dogfeed
+OPENROUTER_KEY=sk-... bun src/index.ts
+
+# Option 3: Standalone flake
+cd packages/dogfeed
+nix develop
 OPENROUTER_KEY=sk-... bun src/index.ts
 ```
 
@@ -88,6 +98,7 @@ const jsonl = recordsToJSONL(records);                // JSONL string
 - [`examples/basic-loop.ts`](examples/basic-loop.ts) — Minimal loop with simulated LLM
 - [`examples/custom-topics.ts`](examples/custom-topics.ts) — Custom topic list with weighted selection
 - [`examples/with-compression.ts`](examples/with-compression.ts) — kompress-ultra integration
+- [`examples/nix-flake.nix`](examples/nix-flake.nix) — Standalone flake for self-hosting
 
 ## The Recursive Loop (v1.1)
 
