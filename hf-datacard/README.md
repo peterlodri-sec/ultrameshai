@@ -39,6 +39,55 @@ license: apache-2.0
 
 ### Self-generated, self-hosted, silver-label Q&A corpus from a continuously-running dogfeed loop
 
+<p align="center">
+  <img src="logo.svg"          width="64" alt="logo"/>
+  &nbsp;&nbsp;
+  <img src="favicon-32.svg"    width="32" alt="favicon"/>
+  &nbsp;&nbsp;
+  <img src="icon-192.svg"      width="48" alt="icon-192"/>
+  &nbsp;&nbsp;
+  <img src="apple-touch-icon.svg" width="48" alt="apple-touch-icon"/>
+</p>
+
+---
+
+## 🎨 Assets in this dataset
+
+| File | Size | Format | Purpose |
+|---|---|---|---|
+| `logo.svg`            | 200×200  | SVG | Primary dataset logo (dark + whale + data rings) |
+| `logo-200.png`        | 200×200  | PNG | PNG raster of the logo (for platforms that don't render SVG) |
+| `favicon-32.svg`      | 32×32    | SVG | Browser tab favicon (SVG source) |
+| `favicon-32.png`      | 32×32    | PNG | Browser tab favicon (PNG, for legacy browsers) |
+| `icon-192.svg`        | 192×192  | SVG | PWA / Android home-screen icon (SVG source) |
+| `icon-192.png`        | 192×192  | PNG | PWA / Android home-screen icon (PNG) |
+| `apple-touch-icon.svg`| 180×180  | SVG | iOS Safari pinned-tab icon (SVG source) |
+| `apple-touch-icon.png`| 180×180  | PNG | iOS Safari pinned-tab icon (PNG) |
+| `og-image.svg`        | 1200×630 | SVG | Open Graph / Twitter card image (SVG source) |
+| `og-image.png`        | 1200×630 | PNG | Open Graph / Twitter card image (PNG, for embeds) |
+| `_headers`            | —        | txt | Cloudflare Pages headers (cache + security) |
+| `robots.txt`          | —        | txt | Crawler rules (HF dataset viewer is the canonical) |
+
+The SVG files are the **source of truth** — the PNGs are rasters of them, generated via `rsvg-convert`. Regenerate any time the SVG changes:
+
+```bash
+rsvg-convert -w 32   -h 32   favicon-32.svg       -o favicon-32.png
+rsvg-convert -w 180  -h 180  apple-touch-icon.svg -o apple-touch-icon.png
+rsvg-convert -w 192  -h 192  icon-192.svg         -o icon-192.png
+rsvg-convert -w 1200 -h 630  og-image.svg         -o og-image.png
+rsvg-convert -w 200  -h 200  logo.svg             -o logo-200.png
+```
+
+Use in a third-party readme:
+```markdown
+<img src="https://huggingface.co/datasets/PeetPedro/ultrawhale-dogfood/resolve/main/logo.svg"
+     alt="Ultrawhale Dogfood" width="160"/>
+```
+
+---
+
+## 🎨 Visual Identity
+
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg?style=for-the-badge)](https://www.apache.org/licenses/LICENSE-2.0)
 [![HF: PeetPedro/ultrawhale-dogfood](https://img.shields.io/badge/HF-PeetPedro%2Fultrawhale--dogfood-FFD21E?style=for-the-badge&logo=huggingface&logoColor=black)](https://huggingface.co/datasets/PeetPedro/ultrawhale-dogfood)
 [![kompress-ultra](https://img.shields.io/badge/powered%20by-kompress--ultra-8B5CF6?style=for-the-badge)](https://github.com/peterlodri-sec/kompress-ultra)
