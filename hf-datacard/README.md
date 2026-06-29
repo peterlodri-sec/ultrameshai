@@ -240,27 +240,33 @@ To use the logo in a third-party readme:
 
 ## 🧮 Mathematical Foundation
 
-The training targets in this dataset are generated under an asymmetric loss formulation that resolves the **Voting Ensemble Paradox**. Math renders with KaTeX on HF — inline as `\(...\)`, block as `$$...$$`.
+The training targets in this dataset are generated under an asymmetric loss formulation that resolves the **Voting Ensemble Paradox**. Math renders as embedded SVG images via codecogs — inline and block.
 
 ### The paradox
 
 Under unanimity-to-keep (AND) voting, the ensemble eviction indicator equals the pointwise maximum of the individual voter indicators:
 
-$$
-I_{\text{ens}}(x) = \bigvee_{i=1}^{N} I_i(x) = I_{i^*_k}(x)
-$$
+<p align="center">
+  <picture>
+    <source srcset="https://latex.codecogs.com/svg.latex?%5Ccolor%7Bwhite%7D%20I_%7B%5Ctext%7Bens%7D%7D%28x%29%20%3D%20%5Cbigvee_%7Bi%3D1%7D%5E%7BN%7D%20I_i%28x%29%20%3D%20I_%7Bi%5E%2A_k%7D%28x%29" media="(prefers-color-scheme: dark)">
+    <picture><source srcset="https://latex.codecogs.com/svg.latex?%5Ccolor%7Bwhite%7D%20I_%7B%5Ctext%7Bens%7D%7D%28x%29%20%3D%20%5Cbigvee_%7Bi%3D1%7D%5E%7BN%7D%20I_i%28x%29%20%3D%20I_%7Bi%5E%2A_k%7D%28x%29" media="(prefers-color-scheme: dark)"><img src="https://latex.codecogs.com/svg.latex?I_%7B%5Ctext%7Bens%7D%7D%28x%29%20%3D%20%5Cbigvee_%7Bi%3D1%7D%5E%7BN%7D%20I_i%28x%29%20%3D%20I_%7Bi%5E%2A_k%7D%28x%29" alt="I_{\text{ens}}(x) = \bigvee_{i=1}^{N} I_i(x) = I_{i^*_k}(x)" style="max-width:100%"/></picture>
+  </picture>
+</p>
 
-> **Notation:** \(i^*_k = \arg\min_{i \in [N]} \text{recall}_i\) — the weakest voter on each stratum sets the ensemble recall floor.
+> **Notation:** <picture><source srcset="https://latex.codecogs.com/svg.latex?%5Ccolor%7Bwhite%7D%20i%5E%2A_k%20%3D%20%5Carg%5Cmin_%7Bi%20%5Cin%20%5BN%5D%7D%20%5Ctext%7Brecall%7D_i" media="(prefers-color-scheme: dark)"><img alt="i^*_k = \arg\min_{i \in [N]} \text{recall}_i" src="https://latex.codecogs.com/svg.latex?i%5E%2A_k%20%3D%20%5Carg%5Cmin_%7Bi%20%5Cin%20%5BN%5D%7D%20%5Ctext%7Brecall%7D_i" style="vertical-align:middle;display:inline;height:1.15em"/></picture> — the weakest voter on each stratum sets the ensemble recall floor.
 
 ### The fix
 
-An asymmetric loss penalty (\(\lambda = 3.0\)) on false eviction of critical-syntactic tokens (\(T_{\text{crit}}\)):
+An asymmetric loss penalty (<picture><source srcset="https://latex.codecogs.com/svg.latex?%5Ccolor%7Bwhite%7D%20%5Clambda%20%3D%203.0" media="(prefers-color-scheme: dark)"><img alt="\lambda = 3.0" src="https://latex.codecogs.com/svg.latex?%5Clambda%20%3D%203.0" style="vertical-align:middle;display:inline;height:1.15em"/></picture>) on false eviction of critical-syntactic tokens (<picture><source srcset="https://latex.codecogs.com/svg.latex?%5Ccolor%7Bwhite%7D%20T_%7B%5Ctext%7Bcrit%7D%7D" media="(prefers-color-scheme: dark)"><img alt="T_{\text{crit}}" src="https://latex.codecogs.com/svg.latex?T_%7B%5Ctext%7Bcrit%7D%7D" style="vertical-align:middle;display:inline;height:1.15em"/></picture>):
 
-$$
-\mathcal{L}_i \;=\; \mathcal{L}_{\text{base}}(\theta_i) \;+\; \lambda \cdot \frac{1}{|T_{\text{crit}}|} \sum_{x \in T_{\text{crit}}} I^{\text{fe}}_i(x)
-$$
+<p align="center">
+  <picture>
+    <source srcset="https://latex.codecogs.com/svg.latex?%5Ccolor%7Bwhite%7D%20%5Cmathcal%7BL%7D_i%20%5C%3B%3D%5C%3B%20%5Cmathcal%7BL%7D_%7B%5Ctext%7Bbase%7D%7D%28%5Ctheta_i%29%20%5C%3B%2B%5C%3B%20%5Clambda%20%5Ccdot%20%5Cfrac%7B1%7D%7B%7CT_%7B%5Ctext%7Bcrit%7D%7D%7C%7D%20%5Csum_%7Bx%20%5Cin%20T_%7B%5Ctext%7Bcrit%7D%7D%7D%20I%5E%7B%5Ctext%7Bfe%7D%7D_i%28x%29" media="(prefers-color-scheme: dark)">
+    <picture><source srcset="https://latex.codecogs.com/svg.latex?%5Ccolor%7Bwhite%7D%20%5Cmathcal%7BL%7D_i%20%5C%3B%3D%5C%3B%20%5Cmathcal%7BL%7D_%7B%5Ctext%7Bbase%7D%7D%28%5Ctheta_i%29%20%5C%3B%2B%5C%3B%20%5Clambda%20%5Ccdot%20%5Cfrac%7B1%7D%7B%7CT_%7B%5Ctext%7Bcrit%7D%7D%7C%7D%20%5Csum_%7Bx%20%5Cin%20T_%7B%5Ctext%7Bcrit%7D%7D%7D%20I%5E%7B%5Ctext%7Bfe%7D%7D_i%28x%29" media="(prefers-color-scheme: dark)"><img src="https://latex.codecogs.com/svg.latex?%5Cmathcal%7BL%7D_i%20%5C%3B%3D%5C%3B%20%5Cmathcal%7BL%7D_%7B%5Ctext%7Bbase%7D%7D%28%5Ctheta_i%29%20%5C%3B%2B%5C%3B%20%5Clambda%20%5Ccdot%20%5Cfrac%7B1%7D%7B%7CT_%7B%5Ctext%7Bcrit%7D%7D%7C%7D%20%5Csum_%7Bx%20%5Cin%20T_%7B%5Ctext%7Bcrit%7D%7D%7D%20I%5E%7B%5Ctext%7Bfe%7D%7D_i%28x%29" alt="\mathcal{L}_i \;=\; \mathcal{L}_{\text{base}}(\theta_i) \;+\" style="max-width:100%"/></picture>
+  </picture>
+</p>
 
-### What is \(T_{\text{crit}}\)?
+### What is <picture><source srcset="https://latex.codecogs.com/svg.latex?%5Ccolor%7Bwhite%7D%20T_%7B%5Ctext%7Bcrit%7D%7D" media="(prefers-color-scheme: dark)"><img alt="T_{\text{crit}}" src="https://latex.codecogs.com/svg.latex?T_%7B%5Ctext%7Bcrit%7D%7D" style="vertical-align:middle;display:inline;height:1.15em"/></picture>?
 
 The **critical-syntactic safety floor** protects tokens that are essential for code correctness:
 
@@ -277,13 +283,13 @@ The **critical-syntactic safety floor** protects tokens that are essential for c
 
 | Math symbol | Where it shows up in the dataset |
 |---|---|
-| \(x\) | one token in a row's `answer` field |
-| \(I_i(x)\) | kompress-ultra's keep/evict decision (per token) |
-| \(I_{\text{ens}}(x)\) | the `pruner` row's `compressed_answer` after Lite pass |
-| \(T_{\text{crit}}\) | the scrub.ts regex set + kompress-ultra's safety floor |
-| \(\lambda = 3.0\) | kompress-ultra's `asymmetricPenalty` config (see paper) |
+| <picture><source srcset="https://latex.codecogs.com/svg.latex?%5Ccolor%7Bwhite%7D%20x" media="(prefers-color-scheme: dark)"><img alt="x" src="https://latex.codecogs.com/svg.latex?x" style="vertical-align:middle;display:inline;height:1.15em"/></picture> | one token in a row's `answer` field |
+| <picture><source srcset="https://latex.codecogs.com/svg.latex?%5Ccolor%7Bwhite%7D%20I_i%28x%29" media="(prefers-color-scheme: dark)"><img alt="I_i(x)" src="https://latex.codecogs.com/svg.latex?I_i%28x%29" style="vertical-align:middle;display:inline;height:1.15em"/></picture> | kompress-ultra's keep/evict decision (per token) |
+| <picture><source srcset="https://latex.codecogs.com/svg.latex?%5Ccolor%7Bwhite%7D%20I_%7B%5Ctext%7Bens%7D%7D%28x%29" media="(prefers-color-scheme: dark)"><img alt="I_{\text{ens}}(x)" src="https://latex.codecogs.com/svg.latex?I_%7B%5Ctext%7Bens%7D%7D%28x%29" style="vertical-align:middle;display:inline;height:1.15em"/></picture> | the `pruner` row's `compressed_answer` after Lite pass |
+| <picture><source srcset="https://latex.codecogs.com/svg.latex?%5Ccolor%7Bwhite%7D%20T_%7B%5Ctext%7Bcrit%7D%7D" media="(prefers-color-scheme: dark)"><img alt="T_{\text{crit}}" src="https://latex.codecogs.com/svg.latex?T_%7B%5Ctext%7Bcrit%7D%7D" style="vertical-align:middle;display:inline;height:1.15em"/></picture> | the scrub.ts regex set + kompress-ultra's safety floor |
+| <picture><source srcset="https://latex.codecogs.com/svg.latex?%5Ccolor%7Bwhite%7D%20%5Clambda%20%3D%203.0" media="(prefers-color-scheme: dark)"><img alt="\lambda = 3.0" src="https://latex.codecogs.com/svg.latex?%5Clambda%20%3D%203.0" style="vertical-align:middle;display:inline;height:1.15em"/></picture> | kompress-ultra's `asymmetricPenalty` config (see paper) |
 
-> **Why the votes of 1-3 free OpenRouter models matter:** the Lite pass treats each `answer` as the "ensemble" of N independent cheap-model generations on the same `(topic, question)` key. The asymmetry penalty guarantees \(T_{\text{crit}}\) tokens survive the vote even when a single model would have evicted them. Every `role: "pruner"` row in this dataset is a concrete witness to that guarantee.
+> **Why the votes of 1-3 free OpenRouter models matter:** the Lite pass treats each `answer` as the "ensemble" of N independent cheap-model generations on the same `(topic, question)` key. The asymmetry penalty guarantees <picture><source srcset="https://latex.codecogs.com/svg.latex?%5Ccolor%7Bwhite%7D%20T_%7B%5Ctext%7Bcrit%7D%7D" media="(prefers-color-scheme: dark)"><img alt="T_{\text{crit}}" src="https://latex.codecogs.com/svg.latex?T_%7B%5Ctext%7Bcrit%7D%7D" style="vertical-align:middle;display:inline;height:1.15em"/></picture> tokens survive the vote even when a single model would have evicted them. Every `role: "pruner"` row in this dataset is a concrete witness to that guarantee.
 
 Full math + proofs: [kompress.vaked.dev/paper/main.pdf](https://kompress.vaked.dev/paper/main.pdf).
 
