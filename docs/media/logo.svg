@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a0a14"/>
+      <stop offset="100%" style="stop-color:#141420"/>
+    </linearGradient>
+    <linearGradient id="mesh" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#00d4ff"/>
+      <stop offset="50%" style="stop-color:#00e660"/>
+      <stop offset="100%" style="stop-color:#b48bff"/>
+    </linearGradient>
+  </defs>
+  
+  <rect width="200" height="200" fill="url(#bg)" rx="20"/>
+  
+  <!-- Mesh network nodes -->
+  <circle cx="100" cy="60" r="8" fill="none" stroke="#00d4ff" stroke-width="2"/>
+  <circle cx="60" cy="110" r="8" fill="none" stroke="#00e660" stroke-width="2"/>
+  <circle cx="140" cy="110" r="8" fill="none" stroke="#b48bff" stroke-width="2"/>
+  <circle cx="80" cy="150" r="8" fill="none" stroke="#00d4ff" stroke-width="2"/>
+  <circle cx="120" cy="150" r="8" fill="none" stroke="#00e660" stroke-width="2"/>
+  
+  <!-- Mesh connections -->
+  <line x1="100" y1="60" x2="60" y2="110" stroke="#00d4ff" stroke-width="1" opacity="0.6"/>
+  <line x1="100" y1="60" x2="140" y2="110" stroke="#00e660" stroke-width="1" opacity="0.6"/>
+  <line x1="60" y1="110" x2="140" y2="110" stroke="#b48bff" stroke-width="1" opacity="0.6"/>
+  <line x1="60" y1="110" x2="80" y2="150" stroke="#00d4ff" stroke-width="1" opacity="0.6"/>
+  <line x1="140" y1="110" x2="120" y2="150" stroke="#00e660" stroke-width="1" opacity="0.6"/>
+  <line x1="80" y1="150" x2="120" y2="150" stroke="#b48bff" stroke-width="1" opacity="0.6"/>
+  
+  <!-- Center node (active) -->
+  <circle cx="100" cy="105" r="12" fill="url(#mesh)" opacity="0.3"/>
+  <circle cx="100" cy="105" r="6" fill="#00e660"/>
+  
+  <!-- Pulse rings -->
+  <circle cx="100" cy="105" r="20" fill="none" stroke="#00e660" stroke-width="0.5" opacity="0.3"/>
+  <circle cx="100" cy="105" r="30" fill="none" stroke="#00e660" stroke-width="0.5" opacity="0.2"/>
+  <circle cx="100" cy="105" r="40" fill="none" stroke="#00e660" stroke-width="0.5" opacity="0.1"/>
+</svg>

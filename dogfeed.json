@@ -1,0 +1,206 @@
+{
+  "$schema": "https://vaked.dev/schemas/dogfeed-v1.json",
+  "meta": {
+    "version": "1.0.0",
+    "generated": "2026-06-29",
+    "org": "peterlodri-sec",
+    "description": "Single source of truth for LLM agent onboarding. Read this first before any code changes.",
+    "update_policy": "Regenerate on every PR merge. CI agent auto-syncs."
+  },
+  "identity": {
+    "name": "ultrameshai",
+    "full_name": "UltrameshAI",
+    "tagline": "Loop-engineering agent stack — SWE-bench Verified ≥98%, then Rust/Zig mesh app on cloud VMs + Raspberry Pis",
+    "org_url": "https://github.com/peterlodri-sec",
+    "primary_repo": "https://github.com/peterlodri-sec/ultrameshai",
+    "license": "Apache-2.0",
+    "status": "active-development",
+    "owner": "Peter Lodri"
+  },
+  "repos": {
+    "ultrameshai": {
+      "path": ".",
+      "url": "https://github.com/peterlodri-sec/ultrameshai",
+      "purpose": "Core monorepo: Rust crates (transport, cognition, orchestrator), agent harness (Nushell), protobuf contracts, kompress-ultra submodule",
+      "languages": ["rust", "nushell", "protobuf"],
+      "branch_strategy": "feature branches → PR → main"
+    },
+    "kompress-ultra": {
+      "path": "packages/kompress-ultra",
+      "url": "https://github.com/peterlodri-sec/kompress-ultra",
+      "purpose": "4-role context compression middleware (scorer, rewriter, pruner, circulator). Standalone npm package + OpenCode plugin.",
+      "languages": ["typescript"],
+      "runtime": "bun",
+      "submodule": true
+    },
+    "proposal.vaked.dev": {
+      "path": "../proposal.vaked.dev",
+      "url": "https://github.com/peterlodri-sec/proposal.vaked.dev",
+      "purpose": "SOTA proposal site — interactive math, benchmark viz, cryptographic reviews, i18n (6 languages). Cloudflare Pages.",
+      "languages": ["html", "javascript", "css"],
+      "deploy": "Cloudflare Pages (proposal.vaked.dev)"
+    },
+    "pocoo.vaked.dev": {
+      "path": "../pocoo.vaked.dev",
+      "url": "https://github.com/peterlodri-sec/pocoo.vaked.dev",
+      "purpose": "Experiment log vault — static site generated from markdown posts. Cloudflare Pages.",
+      "languages": ["markdown", "javascript"],
+      "deploy": "Cloudflare Pages (pocoo.vaked.dev)"
+    },
+    "portail": {
+      "path": "../portail",
+      "url": "https://github.com/peterlodri-sec/portail",
+      "purpose": "Rust HTTP gateway/proxy (axum). Routes: AI proxy, MCP, A2A, CDN. Serves on :8787.",
+      "languages": ["rust"],
+      "deploy": "Local / cloud VM"
+    },
+    "second-brain-cloudflare": {
+      "path": "second-brain-cloudflare",
+      "purpose": "Cloudflare Workers MCP server — semantic memory (D1 + Vectorize). Tools: remember, recall, forget.",
+      "languages": ["typescript"],
+      "deploy": "Cloudflare Workers"
+    }
+  },
+  "architecture": {
+    "layers": [
+      {
+        "id": 1,
+        "name": "Cognition",
+        "description": "LLM client, session management, prompt assembly, tool dispatch",
+        "crates": ["agent-core", "cognition"],
+        "status": "in-progress"
+      },
+      {
+        "id": 2,
+        "name": "Orchestration",
+        "description": "Topology mapping, loop routing, slice assignment",
+        "crates": ["orchestrator", "loops"],
+        "status": "in-progress"
+      },
+      {
+        "id": 3,
+        "name": "Transport",
+        "description": "Framed protobuf over UDS, node registry, heartbeat",
+        "crates": ["transport", "node-registry"],
+        "status": "working"
+      },
+      {
+        "id": 4,
+        "name": "Execution",
+        "description": "Target node daemon, Bun runtimes, agent unit sandboxing",
+        "crates": ["agents"],
+        "status": "planned"
+      },
+      {
+        "id": "memory",
+        "name": "Memory",
+        "description": "Long-term storage: Milvus vectors, SQLite mempalace, context circulator",
+        "crates": ["milvus-brain", "mempalace", "honcho", "memory-mesh"],
+        "status": "in-progress"
+      }
+    ],
+    "ipc_contract": "proto/loop_engineering.proto — 11 message types, 1 enum, max 4MB framed"
+  },
+  "key_files": {
+    "flake.nix": "Nix flake: devShells (agent-unit, -test, -red-team, -devops), protobuf-gen",
+    "AGENTS.md": "Agent onboarding doc — architecture, commands, layout, constraints",
+    "mesh.nu": "Nushell dev harness — status/serve/test/build/deploy across repos",
+    "proto/loop_engineering.proto": "Single typed IPC contract across all components",
+    "packages/kompress-ultra/": "Context compression middleware (submodule)",
+    "second-brain-cloudflare/": "MCP memory server on Cloudflare Workers",
+    "docs/superpowers/specs/": "Design specifications",
+    "docs/superpowers/plans/": "Execution plans",
+    "docs/ECL.md": "Evolutionary Change Log rules",
+    "docs/STATUS.md": "Current project status"
+  },
+  "tech_stack": {
+    "languages": {
+      "rust": { "version": "2021+", "role": "Performance-critical paths (transport, registry, cognition)" },
+      "nushell": { "role": "Scripting, agent lifecycle, dev harness" },
+      "typescript": { "runtime": "bun", "role": "kompress-ultra, MCP servers, plugins" },
+      "protobuf": { "version": "proto3", "role": "IPC message format" }
+    },
+    "frameworks": {
+      "tokio": "Async runtime for all Rust crates",
+      "axum": "HTTP framework (portail gateway)",
+      "prost": "Protobuf codegen (Rust)",
+      "milvus": "Vector database for semantic memory",
+      "sqlx": "SQLite access (mempalace, honcho)",
+      "@modelcontextprotocol/sdk": "MCP server SDK (second-brain, kompress-ultra API)"
+    },
+    "infra": {
+      "nix": "Reproducible environments, no imperative installs",
+      "cloudflare_pages": "Static site hosting (proposal.vaked.dev, pocoo.vaked.dev)",
+      "cloudflare_workers": "MCP server hosting (second-brain)",
+      "cloudflare_r2": "Object storage (S3-compatible)",
+      "cloudflare_vectorize": "Vector DB for MCP memory",
+      "cloudflare_d1": "SQLite for MCP memory"
+    }
+  },
+  "commands": {
+    "verify_flake": "nix flake check",
+    "enter_shell": "nix develop .#agent-unit --command nu -c \"version\"",
+    "warm_cache": "nix build .#agent-unit --no-link",
+    "transport_tests": "cargo test --manifest-path crates/transport/Cargo.toml",
+    "all_tests": "cargo test",
+    "ecl_lint": "nu scripts/lint-ecl.nu",
+    "serve_gateway": "nu mesh.nu serve",
+    "run_tests_harness": "nu mesh.nu test",
+    "build_proposal": "nu mesh.nu build",
+    "deploy_proposal": "nu mesh.nu deploy",
+    "kompress_test": "cd packages/kompress-ultra && bun test",
+    "kompress_build": "cd packages/kompress-ultra && bun build src/index.ts --outdir dist"
+  },
+  "constraints": {
+    "hardware": "Cloud VMs (64GB RAM) + Raspberry Pi (4GB RAM) — test on both",
+    "memory_cap_per_agent": { "soft_mb": 100, "elastic_mb": 150, "kill_mb": 160 },
+    "protobuf_max_bytes": 4194304,
+    "macos_limitation": "Cannot run nix flake check or nix develop — verify on target Linux nodes",
+    "tdd": "Required for all Rust crates (failing test first, then implementation)",
+    "caveman_mode": "Active in this project. Code/commits/PRs stay normal English."
+  },
+  "active_branches": {
+    "ultrameshai": {
+      "current": "docs/add-math-formulas",
+      "ahead_of_main": 9,
+      "has_conflict": true,
+      "conflict_note": "Remote has kompress-ultra as regular files, local has submodule. Needs fresh branch or force push."
+    }
+  },
+  "open_prs": {
+    "ultrameshai#3": {
+      "title": "docs: add math formulas + mesh.nu dev harness",
+      "branch": "docs/add-math-formulas",
+      "review_comments": 8,
+      "status": "review-changes-requested",
+      "action_items": [
+        "Hardcoded paths in mesh.nu serve (FIXED)",
+        "deploy -p flag mismatch (FIXED)",
+        "lsof error handling (NEEDS REVIEW)",
+        "cargo test stderr (FIXED)",
+        "LaTeX i*_k definition (FIXED)",
+        "PR title should mention mesh.nu"
+      ]
+    }
+  },
+  "ecosystem": {
+    "kompress_paper": "https://kompress.vaked.dev/paper/main.pdf",
+    "proposal_site": "https://proposal.vaked.dev",
+    "log_vault": "https://pocoo.vaked.dev",
+    "hf_profile": "https://huggingface.co/PeetPedro",
+    "hf_dataset": "https://huggingface.co/datasets/PeetPedro/ultrawhale-dogfood",
+    "hf_model": "https://huggingface.co/PeetPedro/kompress-v8",
+    "headroom_pr": "https://github.com/headroomlabs-ai/headroom/pull/1419",
+    "tools": {
+      "crush": "https://github.com/charmbracelet/crush",
+      "opencode": "https://opencode.ai"
+    }
+  },
+  "dogfeed_sources": {
+    "note": "Raw dogfeed data lives in separate repos. This datacard aggregates the project-level view.",
+    "repos": [
+      "https://github.com/peterlodri-sec/ultrawhale-dogfood",
+      "https://github.com/peterlodri-sec/dogfeedOS"
+    ]
+  }
+}

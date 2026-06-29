@@ -11,6 +11,7 @@
       let
         pkgs = nixpkgs.legacyPackages.${system};
         agentUnit = import ./nix/agent-unit.nix { inherit pkgs; };
+        dogfeed = import ./nix/dogfeed.nix { inherit pkgs; };
       in
       {
         devShells = {
@@ -19,6 +20,7 @@
           agent-unit-test = agentUnit.test;
           agent-unit-red-team = agentUnit.redTeam;
           agent-unit-devops = agentUnit.devops;
+          dogfeed = dogfeed;
         };
 
         packages.protobuf-gen = import ./nix/protobuf.nix { inherit pkgs; };

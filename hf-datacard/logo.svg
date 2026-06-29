@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="ocean" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a0a14"/>
+      <stop offset="50%" style="stop-color:#0e1a2e"/>
+      <stop offset="100%" style="stop-color:#0a0a14"/>
+    </linearGradient>
+    <linearGradient id="whale" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#00d4ff"/>
+      <stop offset="100%" style="stop-color:#00e660"/>
+    </linearGradient>
+    <radialGradient id="spout" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#00e660;stop-opacity:0.9"/>
+      <stop offset="100%" style="stop-color:#00e660;stop-opacity:0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- ocean background -->
+  <rect width="200" height="200" fill="url(#ocean)" rx="20"/>
+
+  <!-- data-loop rings (the loop) -->
+  <circle cx="100" cy="100" r="88" fill="none" stroke="#00d4ff" stroke-width="0.5" opacity="0.1"/>
+  <circle cx="100" cy="100" r="72" fill="none" stroke="#00d4ff" stroke-width="0.7" opacity="0.18"/>
+  <circle cx="100" cy="100" r="56" fill="none" stroke="#00d4ff" stroke-width="0.9" opacity="0.28"/>
+  <circle cx="100" cy="100" r="40" fill="none" stroke="#00d4ff" stroke-width="1" opacity="0.4"/>
+  <circle cx="100" cy="100" r="24" fill="none" stroke="#00d4ff" stroke-width="1.2" opacity="0.6"/>
+
+  <!-- data dots orbiting on the rings (samples streaming) -->
+  <circle cx="100" cy="60"  r="2"   fill="#00d4ff" opacity="0.9"/>
+  <circle cx="140" cy="100" r="1.8" fill="#00e660" opacity="0.9"/>
+  <circle cx="100" cy="140" r="2"   fill="#00d4ff" opacity="0.7"/>
+  <circle cx="60"  cy="100" r="1.8" fill="#00e660" opacity="0.85"/>
+  <circle cx="128" cy="72"  r="1.4" fill="#FFD21E" opacity="0.9"/>
+  <circle cx="128" cy="128" r="1.4" fill="#FFD21E" opacity="0.7"/>
+  <circle cx="72"  cy="128" r="1.4" fill="#FFD21E" opacity="0.85"/>
+  <circle cx="72"  cy="72"  r="1.4" fill="#FFD21E" opacity="0.9"/>
+
+  <!-- the whale (stylized, side view, facing right) -->
+  <path d="M 50 110
+           C 50 95, 70 88, 95 88
+           C 115 88, 130 92, 142 102
+           L 152 96
+           L 150 105
+           L 152 114
+           L 142 108
+           C 130 118, 115 122, 95 122
+           C 70 122, 50 115, 50 110
+           Z"
+        fill="url(#whale)" opacity="0.85" stroke="#00d4ff" stroke-width="0.5"/>
+
+  <!-- whale belly highlight -->
+  <path d="M 60 116
+           C 75 121, 100 122, 130 117
+           C 115 121, 90 122, 60 116 Z"
+        fill="#0a0a14" opacity="0.35"/>
+
+  <!-- whale eye (the "i" of the loop, watching the data) -->
+  <circle cx="125" cy="103" r="2.2" fill="#0a0a14"/>
+  <circle cx="125" cy="103" r="0.9" fill="#FFD21E"/>
+
+  <!-- the data spout (HF yellow) -->
+  <ellipse cx="110" cy="68" rx="8" ry="3" fill="url(#spout)"/>
+  <circle cx="106" cy="60" r="1.5" fill="#FFD21E" opacity="0.95"/>
+  <circle cx="112" cy="55" r="1.2" fill="#FFD21E" opacity="0.85"/>
+  <circle cx="116" cy="62" r="1"   fill="#FFD21E" opacity="0.75"/>
+  <circle cx="108" cy="48" r="0.8" fill="#00d4ff" opacity="0.9"/>
+  <circle cx="118" cy="50" r="0.6" fill="#00d4ff" opacity="0.7"/>
+
+  <!-- subtle data waves (the stream) -->
+  <path d="M 20 145 Q 50 142, 80 145 T 140 145 T 200 145"
+        fill="none" stroke="#00d4ff" stroke-width="0.6" opacity="0.2"/>
+  <path d="M 0 160 Q 30 157, 60 160 T 120 160 T 200 160"
+        fill="none" stroke="#00e660" stroke-width="0.6" opacity="0.18"/>
+  <path d="M 0 175 Q 35 172, 70 175 T 140 175 T 200 175"
+        fill="none" stroke="#00d4ff" stroke-width="0.6" opacity="0.15"/>
+
+  <!-- "uw" mark in lower corner, hugging whale aesthetic -->
+  <text x="100" y="190" font-family="ui-monospace, monospace" font-size="9"
+        fill="#00d4ff" text-anchor="middle" opacity="0.5" letter-spacing="1.5">ULTRAWHALE</text>
+</svg>

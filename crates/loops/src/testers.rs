@@ -22,7 +22,7 @@ impl Default for TestersLoop {
 #[async_trait::async_trait]
 impl Loop for TestersLoop {
     fn loop_type(&self) -> &str {
-        "testers-loop"
+        "testers"
     }
 
     async fn process(&mut self, input: LoopInput) -> Result<LoopOutput> {

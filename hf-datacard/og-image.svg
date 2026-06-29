@@ -1,0 +1,122 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="og-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a0a14"/>
+      <stop offset="50%" style="stop-color:#0e1a2e"/>
+      <stop offset="100%" style="stop-color:#0a0a14"/>
+    </linearGradient>
+    <linearGradient id="og-whale" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#00d4ff"/>
+      <stop offset="100%" style="stop-color:#00e660"/>
+    </linearGradient>
+    <radialGradient id="og-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#00d4ff;stop-opacity:0.18"/>
+      <stop offset="100%" style="stop-color:#00d4ff;stop-opacity:0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#og-bg)"/>
+
+  <!-- ambient glow behind whale -->
+  <ellipse cx="600" cy="315" rx="450" ry="280" fill="url(#og-glow)"/>
+
+  <!-- data-loop rings -->
+  <circle cx="600" cy="315" r="280" fill="none" stroke="#00d4ff" stroke-width="0.6" opacity="0.08"/>
+  <circle cx="600" cy="315" r="220" fill="none" stroke="#00d4ff" stroke-width="0.8" opacity="0.14"/>
+  <circle cx="600" cy="315" r="160" fill="none" stroke="#00d4ff" stroke-width="1" opacity="0.22"/>
+  <circle cx="600" cy="315" r="100" fill="none" stroke="#00d4ff" stroke-width="1.3" opacity="0.36"/>
+
+  <!-- orbiting sample dots -->
+  <circle cx="600" cy="115" r="4"   fill="#00d4ff" opacity="0.9"/>
+  <circle cx="780" cy="315" r="3.6" fill="#00e660" opacity="0.9"/>
+  <circle cx="600" cy="515" r="4"   fill="#00d4ff" opacity="0.7"/>
+  <circle cx="420" cy="315" r="3.6" fill="#00e660" opacity="0.85"/>
+  <circle cx="725" cy="190" r="2.8" fill="#FFD21E" opacity="0.9"/>
+  <circle cx="725" cy="440" r="2.8" fill="#FFD21E" opacity="0.7"/>
+  <circle cx="475" cy="440" r="2.8" fill="#FFD21E" opacity="0.85"/>
+  <circle cx="475" cy="190" r="2.8" fill="#FFD21E" opacity="0.9"/>
+  <circle cx="660" cy="155" r="2"   fill="#00d4ff" opacity="0.8"/>
+  <circle cx="660" cy="475" r="2"   fill="#00d4ff" opacity="0.7"/>
+  <circle cx="540" cy="155" r="2"   fill="#00e660" opacity="0.8"/>
+  <circle cx="540" cy="475" r="2"   fill="#00e660" opacity="0.7"/>
+
+  <!-- the whale, big and centered -->
+  <path d="M 350 345
+           C 350 290, 440 255, 565 255
+           C 660 255, 740 270, 800 305
+           L 850 280
+           L 840 315
+           L 850 350
+           L 800 325
+           C 740 360, 660 375, 565 375
+           C 440 375, 350 350, 350 345
+           Z"
+        fill="url(#og-whale)" opacity="0.9" stroke="#00d4ff" stroke-width="0.6"/>
+
+  <!-- belly shadow -->
+  <path d="M 380 365 C 460 380, 600 382, 760 365 C 660 380, 500 382, 380 365 Z"
+        fill="#0a0a14" opacity="0.4"/>
+
+  <!-- whale eye -->
+  <circle cx="710" cy="318" r="8" fill="#0a0a14"/>
+  <circle cx="710" cy="318" r="3.5" fill="#FFD21E"/>
+
+  <!-- spout (HF yellow data stream) -->
+  <ellipse cx="640" cy="215" rx="40" ry="11" fill="#FFD21E" opacity="0.25"/>
+  <ellipse cx="640" cy="200" rx="28" ry="6" fill="#FFD21E" opacity="0.35"/>
+  <circle cx="620" cy="180" r="5" fill="#FFD21E" opacity="0.95"/>
+  <circle cx="650" cy="155" r="4" fill="#FFD21E" opacity="0.85"/>
+  <circle cx="670" cy="180" r="3.5" fill="#FFD21E" opacity="0.75"/>
+  <circle cx="630" cy="135" r="3" fill="#00d4ff" opacity="0.9"/>
+  <circle cx="660" cy="125" r="2.5" fill="#00d4ff" opacity="0.7"/>
+  <circle cx="680" cy="145" r="2" fill="#FFD21E" opacity="0.6"/>
+
+  <!-- subtle wave lines -->
+  <path d="M 0 470 Q 200 462, 400 470 T 800 470 T 1200 470"
+        fill="none" stroke="#00d4ff" stroke-width="1" opacity="0.18"/>
+  <path d="M 0 510 Q 180 502, 360 510 T 720 510 T 1200 510"
+        fill="none" stroke="#00e660" stroke-width="1" opacity="0.16"/>
+  <path d="M 0 555 Q 220 547, 440 555 T 880 555 T 1200 555"
+        fill="none" stroke="#00d4ff" stroke-width="1" opacity="0.14"/>
+
+  <!-- title block -->
+  <text x="60" y="100" font-family="ui-monospace, 'SF Mono', monospace"
+        font-size="24" fill="#00d4ff" opacity="0.7" letter-spacing="3">
+    ULTRAWHALE · DOGFOOD · v1
+  </text>
+  <text x="60" y="175" font-family="ui-sans-serif, system-ui, sans-serif"
+        font-size="72" font-weight="800" fill="#ffffff" letter-spacing="-2">
+    A silver-label Q&amp;A corpus
+  </text>
+  <text x="60" y="245" font-family="ui-sans-serif, system-ui, sans-serif"
+        font-size="44" font-weight="400" fill="#00d4ff" opacity="0.85">
+    from a continuously-running dogfeed loop
+  </text>
+
+  <!-- meta row -->
+  <g transform="translate(60, 545)">
+    <text font-family="ui-monospace, monospace" font-size="20" fill="#9ca3af">
+      <tspan fill="#00e660">▸</tspan>
+      <tspan dx="10">self-hosted</tspan>
+      <tspan dx="14" fill="#9ca3af">·</tspan>
+      <tspan dx="14" fill="#00d4ff">▸</tspan>
+      <tspan dx="10">NixOS systemd</tspan>
+      <tspan dx="14" fill="#9ca3af">·</tspan>
+      <tspan dx="14" fill="#FFD21E">▸</tspan>
+      <tspan dx="10">kompress-ultra</tspan>
+      <tspan dx="14" fill="#9ca3af">·</tspan>
+      <tspan dx="14" fill="#9ca3af">▸</tspan>
+      <tspan dx="10">Apache 2.0</tspan>
+    </text>
+  </g>
+
+  <!-- repo corner -->
+  <text x="1140" y="100" text-anchor="end"
+        font-family="ui-monospace, monospace" font-size="20" fill="#9ca3af">
+    huggingface.co/datasets/PeetPedro/ultrawhale-dogfood
+  </text>
+  <text x="1140" y="130" text-anchor="end"
+        font-family="ui-monospace, monospace" font-size="18" fill="#6b7280">
+    github.com/peterlodri-sec/ultrameshai
+  </text>
+</svg>

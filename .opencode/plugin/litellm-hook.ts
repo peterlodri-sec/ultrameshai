@@ -3,7 +3,7 @@
 // Lightweight: no milvus calls, no embedding calls. Falls through unchanged on any error.
 
 import { isProtected } from "./kompress-ultra";
-import { compressMessage, CompressionLevel } from "./rewriter.js";
+import { compressMessage, CompressionLevel } from "../lib/rewriter.js";
 
 export interface LiteLLMRequest {
   model: string;
