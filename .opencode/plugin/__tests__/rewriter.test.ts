@@ -1,5 +1,5 @@
 import { describe, test, expect } from 'bun:test';
-import { compressMessage, CompressionLevel } from '../rewriter';
+import { compressMessage, CompressionLevel } from '../lib/rewriter';
 
 describe('compressMessage', () => {
   test('verbatim preserves content exactly', () => {

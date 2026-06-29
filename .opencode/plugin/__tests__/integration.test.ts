@@ -5,14 +5,14 @@ import {
   ebbinghausDecay,
   structuralBoost,
 } from "../kompress-ultra";
-import { compressMessage, CompressionLevel } from "../rewriter";
-import { CoProcessor } from "../co-processor";
+import { compressMessage, CompressionLevel } from "../lib/rewriter";
+import { CoProcessor } from "../lib/co-processor";
 import { kompressMiddleware, type LiteLLMRequest } from "../litellm-hook";
 import {
   readFileSidecar,
   writeFileSidecar,
   type FileSidecar,
-} from "../kompress-repo";
+} from "../lib/kompress-repo";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
