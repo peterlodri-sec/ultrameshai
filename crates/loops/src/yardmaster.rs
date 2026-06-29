@@ -448,7 +448,7 @@ impl Default for YardmasterLoop {
 #[async_trait::async_trait]
 impl Loop for YardmasterLoop {
     fn loop_type(&self) -> &str {
-        "yardmaster-loop"
+"yardmaster"
     }
 
     async fn process(&mut self, input: LoopInput) -> Result<LoopOutput> {

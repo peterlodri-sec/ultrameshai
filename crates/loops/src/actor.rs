@@ -261,6 +261,7 @@ pub fn new_shared_supervisor(channel_capacity: usize) -> SharedSupervisor {
 mod tests {
     use super::*;
     use crate::bruteforce_coder::BruteforceCoderLoop;
+    use crate::MotivationSummary;
 
     #[tokio::test]
     async fn test_actor_creation_and_process() {
@@ -289,6 +290,7 @@ mod tests {
             slice_id: "slice-001".to_string(),
             task_desc: "Test task".to_string(),
             context: vec![],
+            motivation: Some(MotivationSummary::default()),
         };
         
         let result = handle.process(input).await;
@@ -326,12 +328,14 @@ mod tests {
             slice_id: "slice-001".to_string(),
             task_desc: "Task 1".to_string(),
             context: vec![],
+            motivation: Some(MotivationSummary::default()),
         };
         
         let input2 = LoopInput {
             slice_id: "slice-002".to_string(),
             task_desc: "Task 2".to_string(),
             context: vec![],
+            motivation: Some(MotivationSummary::default()),
         };
         
         let (result1, result2) = tokio::join!(

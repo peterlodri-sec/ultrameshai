@@ -22,7 +22,7 @@ impl Default for DevopsLoop {
 #[async_trait::async_trait]
 impl Loop for DevopsLoop {
     fn loop_type(&self) -> &str {
-        "devops-loop"
+        "devops"
     }
 
     async fn process(&mut self, input: LoopInput) -> Result<LoopOutput> {

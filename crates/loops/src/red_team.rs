@@ -22,7 +22,7 @@ impl Default for RedTeamLoop {
 #[async_trait::async_trait]
 impl Loop for RedTeamLoop {
     fn loop_type(&self) -> &str {
-        "red-team-loop"
+        "red-team"
     }
 
     async fn process(&mut self, input: LoopInput) -> Result<LoopOutput> {

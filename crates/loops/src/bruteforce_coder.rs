@@ -22,7 +22,7 @@ impl Default for BruteforceCoderLoop {
 #[async_trait::async_trait]
 impl Loop for BruteforceCoderLoop {
     fn loop_type(&self) -> &str {
-        "bruteforce-coder-loop"
+        "bruteforce-coder"
     }
 
     async fn process(&mut self, input: LoopInput) -> Result<LoopOutput> {
