@@ -133,7 +133,9 @@ export async function runLoop(config: DogfeedConfig): Promise<void> {
       config.hfToken &&
       conn.unpushedRecords().length >= config.pushEvery
     ) {
-      const pushed = await publishBatch(conn, config.hfRepo, config.hfToken);
+      const pushed = await publishBatch(conn, config.hfRepo, config.hfToken, {
+        webhookUrl: process.env.DOGFEED_WEBHOOK_URL,
+      });
       console.log(`[dogfeed] pushed ${pushed} records to ${config.hfRepo}`);
     }
 

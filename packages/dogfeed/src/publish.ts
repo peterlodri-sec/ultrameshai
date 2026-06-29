@@ -28,6 +28,7 @@ export async function publishBatch(
   conn: DogfeedDB,
   hfRepo: string,
   hfToken: string,
+  opts: { webhookUrl?: string } = {},
 ): Promise<number> {
   const records = conn.unpushedRecords();
   if (records.length === 0) return 0;
@@ -39,17 +40,22 @@ export async function publishBatch(
   const existingContent = await readHFFile(hfRepo, path, hfToken);
   const content = existingContent ? existingContent + "\n" + jsonl : jsonl;
 
+  const writtenFiles: string[] = [];
+
   // Push the timestamped batch file
-  const sha = existingContent
+  const batchWrite = existingContent
     ? null
     : await writeHFFile(hfRepo, path, content, hfToken, "append");
   if (existingContent) {
     // File already existed — append by reading, then writing back
-    await writeHFFile(hfRepo, path, content, hfToken, "overwrite");
+    const overwrite = await writeHFFile(hfRepo, path, content, hfToken, "overwrite");
+    if (overwrite.oid) writtenFiles.push(path);
+  } else if (batchWrite?.oid) {
+    writtenFiles.push(path);
   }
 
   // Mirror the latest batch to data/latest.jsonl (always fresh)
-  await writeHFFile(
+  const latestWrite = await writeHFFile(
     hfRepo,
     "data/latest.jsonl",
     jsonl,
@@ -57,10 +63,11 @@ export async function publishBatch(
     "overwrite",
     "refresh latest batch mirror",
   );
+  if (latestWrite.oid) writtenFiles.push("data/latest.jsonl");
 
   // Refresh stats.json
   const stats = conn.stats();
-  await writeHFFile(
+  const statsWrite = await writeHFFile(
     hfRepo,
     "data/stats.json",
     JSON.stringify(stats, null, 2),
@@ -68,11 +75,22 @@ export async function publishBatch(
     "overwrite",
     "refresh aggregate stats",
   );
+  if (statsWrite.oid) writtenFiles.push("data/stats.json");
 
-  if (sha || existingContent) {
+  if (writtenFiles.length > 0) {
     const ids = records.map((r) => r.id!).filter(Boolean) as number[];
     conn.markPushed(ids);
     conn.logEvent("INFO", `pushed ${records.length} records to ${hfRepo}/${path}`);
+
+    // Fire-and-forget webhook to proposal.vaked.dev (if configured)
+    await notifyProposal(opts.webhookUrl, {
+      repo: hfRepo,
+      files: writtenFiles,
+      commitOid: batchWrite?.oid ?? latestWrite.oid ?? statsWrite.oid ?? "",
+      recordCount: records.length,
+      timestamp: new Date().toISOString(),
+    });
+
     return records.length;
   }
 
@@ -103,7 +121,7 @@ async function writeHFFile(
   token: string,
   mode: "append" | "overwrite",
   summary = mode === "append" ? "append batch" : "dogfeed publish",
-): Promise<string | null> {
+): Promise<{ oid: string | null; commitSummary: string }> {
   const encoded = btoa(unescape(encodeURIComponent(content)));
   const res = await fetch(`${HF_API}/datasets/${repo}/commit/main`, {
     method: "POST",
@@ -134,10 +152,49 @@ async function writeHFFile(
   if (!res.ok) {
     const text = await res.text();
     console.error(`[dogfeed] HF commit failed for ${path}: ${res.status} ${text.slice(0, 200)}`);
-    return null;
+    return { oid: null, commitSummary: summary };
   }
   const json = (await res.json()) as { commit?: { oid?: string } };
-  return json.commit?.oid ?? null;
+  return { oid: json.commit?.oid ?? null, commitSummary: summary };
+}
+
+/**
+ * Fire-and-forget webhook to proposal.vaked.dev so the live-ticker
+ * on the proposal site can re-render. Configured via the
+ * `DOGFEED_WEBHOOK_URL` env var or the `dogfeed.webhookUrl` option in
+ * the systemd module. Failure is non-fatal — the dataset is already
+ * pushed; the ticker just won't refresh until the next push.
+ */
+async function notifyProposal(
+  webhookUrl: string | undefined,
+  payload: {
+    repo: string;
+    files: string[];
+    commitOid: string;
+    recordCount: number;
+    timestamp: string;
+  },
+): Promise<void> {
+  if (!webhookUrl) return;
+  try {
+    const res = await fetch(webhookUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Dogfeed-Source": "ultrameshai",
+        "X-Dogfeed-Event": "batch.pushed",
+      },
+      body: JSON.stringify(payload),
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (!res.ok) {
+      console.warn(`[dogfeed] proposal webhook returned ${res.status}`);
+    }
+  } catch (err) {
+    console.warn(
+      `[dogfeed] proposal webhook failed (non-fatal): ${err instanceof Error ? err.message : err}`,
+    );
+  }
 }
 
 export async function pushAll(
@@ -145,10 +202,11 @@ export async function pushAll(
   hfRepo: string,
   hfToken: string,
   batchSize: number,
+  opts: { webhookUrl?: string } = {},
 ): Promise<number> {
   let total = 0;
   while (conn.unpushedRecords().length > 0) {
-    const pushed = await publishBatch(conn, hfRepo, hfToken);
+    const pushed = await publishBatch(conn, hfRepo, hfToken, opts);
     if (pushed === 0) break;
     total += pushed;
     if (total >= batchSize) break;
