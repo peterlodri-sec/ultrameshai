@@ -135,44 +135,29 @@ async function writeHFFile(
   op: "add" | "delete",
   summary = "dogfeed publish",
 ): Promise<{ oid: string | null }> {
-  if (op === "delete") {
-    const res = await fetch(`${HF_API}/datasets/${repo}/commit/main`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        summary,
-        operations: [{ key: path, op: "delete" }],
-      }),
-      signal: AbortSignal.timeout(30_000),
-    });
-    if (!res.ok) {
-      console.error(`[dogfeed] HF delete failed for ${path}: ${res.status}`);
-      return { oid: null };
-    }
-    const json = (await res.json()) as { commit?: { oid?: string } };
-    return { oid: json.commit?.oid ?? null };
-  }
-
-  // op === "add"
-  const encoded = btoa(unescape(encodeURIComponent(content)));
+  // HF create_commit expects NDJSON (application/x-ndjson): a `header` line,
+  // then one line per file op (`file` for add, `deletedFile` for delete). The
+  // old {summary, operations:[{key,value}]} JSON body was silently rejected —
+  // records were fetched but nothing published ("pushed 0"). Verified fix.
+  const header = JSON.stringify({ key: "header", value: { summary } });
+  const line =
+    op === "delete"
+      ? JSON.stringify({ key: "deletedFile", value: { path } })
+      : JSON.stringify({
+          key: "file",
+          value: {
+            path,
+            content: btoa(unescape(encodeURIComponent(content))),
+            encoding: "base64",
+          },
+        });
   const res = await fetch(`${HF_API}/datasets/${repo}/commit/main`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
+      "Content-Type": "application/x-ndjson",
     },
-    body: JSON.stringify({
-      summary,
-      operations: [
-        {
-          key: path,
-          value: encoded,
-        },
-      ],
-    }),
+    body: header + "\n" + line + "\n",
     signal: AbortSignal.timeout(30_000),
   });
   if (!res.ok) {
@@ -180,8 +165,8 @@ async function writeHFFile(
     console.error(`[dogfeed] HF commit failed for ${path}: ${res.status} ${text.slice(0, 200)}`);
     return { oid: null };
   }
-  const json = (await res.json()) as { commit?: { oid?: string } };
-  return { oid: json.commit?.oid ?? null };
+  const json = (await res.json()) as { commitOid?: string; commit?: { oid?: string } };
+  return { oid: json.commitOid ?? json.commit?.oid ?? null };
 }
 
 /**
