@@ -103,10 +103,57 @@ export async function ask(
   hfToken: string,
   maxTokens: number,
 ): Promise<LLMResponse | null> {
+  if (model.startsWith("vaked/")) {
+    return askVaked(prompt, model.slice(6), maxTokens);
+  }
   if (model.startsWith("hf/")) {
     return askHF(prompt, model.slice(3), hfToken, maxTokens);
   }
   return askOpenRouter(prompt, model, key, maxTokens);
+}
+
+// vaked/<model> → our own H200 (Qwen3-Coder-Next) via coder.vaked.dev's premium
+// route, authed with the owner key in $VAKED_PAID_KEY. This is the "local
+// endpoint" branch: dogfeed our own paid inference instead of renting OpenRouter.
+export async function askVaked(
+  prompt: string,
+  model: string,
+  maxTokens: number,
+): Promise<LLMResponse | null> {
+  try {
+    const res = await fetch("https://coder.vaked.dev/v1/premium/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.VAKED_PAID_KEY ?? ""}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: maxTokens,
+        temperature: 0.7,
+      }),
+      signal: AbortSignal.timeout(90_000),
+    });
+    if (!res.ok) {
+      if (res.status === 429) await sleep(10_000);
+      return null;
+    }
+    const json = (await res.json()) as {
+      choices?: { message?: { content?: string } }[];
+      usage?: { prompt_tokens?: number; completion_tokens?: number };
+    };
+    const content = json.choices?.[0]?.message?.content?.trim();
+    if (!content) return null;
+    return {
+      content,
+      model: `vaked/${model}`,
+      tokens_in: json.usage?.prompt_tokens ?? 0,
+      tokens_out: json.usage?.completion_tokens ?? 0,
+    };
+  } catch {
+    return null;
+  }
 }
 
 function sleep(ms: number): Promise<void> {
