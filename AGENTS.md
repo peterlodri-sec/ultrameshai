@@ -43,10 +43,17 @@ Free LLM options: OpenRouter, OpenCode Go/Zen, Alibaba Qwen 3.6 / 3.7.
 Nix shells must be cached before any spawn benchmark — `<500ms spawn` means runtime scaffolding ready (nix shells cached + worker procs forked), NOT LLM token latency.
 
 ```bash
+# First-time clone — init the kompress-ultra submodule
+git submodule update --init --recursive
+
+# Nix
 nix flake check                                          # verify flake evaluates
 nix develop .#agent-unit --command nu -c "version"        # enter standard shell
 nix build .#agent-unit --no-link                         # warm shell cache (required before bench)
 cargo test --manifest-path crates/transport/Cargo.toml   # transport crate tests
+
+# OpenCode plugin tests (Bun)
+cd .opencode && bun install && bun test
 ```
 
 ## Layout
