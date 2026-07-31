@@ -1,0 +1,105 @@
+name: Publish Dataset Card
+
+# OIDC-authenticated upload of hf-datacard/ -> PeetPedro/ultrawhale-dogfood on HF Hub.
+#
+# Requires one-time setup on HF side:
+#   Settings → Trusted Publishers → Add GitHub Actions publisher
+#     Repo: peterlodri-sec/ultrameshai
+#     Workflow: .github/workflows/publish-dataset-card.yml
+#     Environment: (leave empty)
+#
+# After setup, this workflow needs NO secrets — OIDC exchanges the
+# GitHub Actions identity token for an ephemeral HF write token.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'hf-datacard/**'
+      - '.github/workflows/publish-dataset-card.yml'
+  workflow_dispatch:
+
+permissions:
+  id-token: write  # for OIDC → HF token exchange
+  contents: read   # checkout
+
+jobs:
+  publish-card:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get HF ephemeral token via OIDC
+        id: auth
+        run: |
+          OIDC_RESP=$(curl -sLS \
+            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=https://huggingface.co" \
+            -H "Authorization: Bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}")
+          OIDC_TOKEN=$(echo "$OIDC_RESP" | jq -r '.value')
+
+          if [ -z "$OIDC_TOKEN" ] || [ "$OIDC_TOKEN" = "null" ]; then
+            echo "OIDC token fetch failed: $OIDC_RESP" >&2
+            exit 1
+          fi
+
+          HF_RESP=$(curl -sLS -X POST \
+            "https://huggingface.co/api/organizations/PeetPedro/trusted-publishers/token" \
+            -H "Authorization: Bearer ${OIDC_TOKEN}" \
+            -H "Content-Type: application/json" \
+            -d '{}')
+
+          HF_TOKEN=$(echo "$HF_RESP" | jq -r '.token')
+          if [ -z "$HF_TOKEN" ] || [ "$HF_TOKEN" = "null" ]; then
+            echo "HF token exchange failed: $HF_RESP" >&2
+            exit 1
+          fi
+          echo "hf_token=${HF_TOKEN}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Upload dataset card to HF Hub
+        env:
+          HF_TOKEN: ${{ steps.auth.outputs.hf_token }}
+        run: |
+          pip install huggingface_hub
+
+          python3 << 'PYEOF'
+          import os
+          from pathlib import Path
+          from huggingface_hub import HfApi
+
+          repo = "PeetPedro/ultrawhale-dogfood"
+          card_dir = Path("hf-datacard")
+
+          api = HfApi(token=os.environ["HF_TOKEN"])
+
+          for file in sorted(card_dir.rglob("*")):
+              if file.is_dir():
+                  continue
+              # API path: strip hf-datacard/ prefix
+              api_path = str(file.relative_to(card_dir))
+              print(f"Uploading {api_path} ({file.stat().st_size} bytes)")
+
+              if api_path == "README.md":
+                  # Use upload_file with commit_message for metadata-only README
+                  api.upload_file(
+                      path_or_fileobj=str(file),
+                      path_in_repo=api_path,
+                      repo_id=repo,
+                      repo_type="dataset",
+                      commit_message=f"docs(dataset-card): update {api_path} [ci]",
+                  )
+              else:
+                  api.upload_file(
+                      path_or_fileobj=str(file),
+                      path_in_repo=api_path,
+                      repo_id=repo,
+                      repo_type="dataset",
+                      commit_message=f"docs(dataset-card): update assets [ci]",
+                  )
+
+          print(f"\nUploaded {sum(1 for _ in card_dir.rglob('*') if not _.is_dir())} files to {repo}")
+          PYEOF

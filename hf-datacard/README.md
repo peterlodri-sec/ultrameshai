@@ -29,25 +29,24 @@ configs:
     path: data/loop-*.jsonl
   - split: latest
     path: data/latest.jsonl
-license: apache-2.0
 ---
 
 <div align="center">
 
-<img src="logo.svg" alt="Ultrawhale Dogfood" width="160" height="160"/>
+<img src="assets/logo.svg" alt="Ultrawhale Dogfood" width="160" height="160"/>
 
 # 🐳 Ultrawhale Dogfood
 
 ### Self-generated, self-hosted, silver-label Q&A corpus from a continuously-running dogfeed loop
 
 <p align="center">
-  <img src="logo.svg"          width="64" alt="logo"/>
+  <img src="assets/logo.svg"          width="64" alt="logo"/>
   &nbsp;&nbsp;
-  <img src="favicon-32.svg"    width="32" alt="favicon"/>
+  <img src="assets/favicon-32.svg"    width="32" alt="favicon"/>
   &nbsp;&nbsp;
-  <img src="icon-192.svg"      width="48" alt="icon-192"/>
+  <img src="assets/icon-192.svg"      width="48" alt="icon-192"/>
   &nbsp;&nbsp;
-  <img src="apple-touch-icon.svg" width="48" alt="apple-touch-icon"/>
+  <img src="assets/apple-touch-icon.svg" width="48" alt="apple-touch-icon"/>
 </p>
 
 ---
@@ -56,32 +55,32 @@ license: apache-2.0
 
 | File | Size | Format | Purpose |
 |---|---|---|---|
-| `logo.svg`            | 200×200  | SVG | Primary dataset logo (dark + whale + data rings) |
-| `logo-200.png`        | 200×200  | PNG | PNG raster of the logo (for platforms that don't render SVG) |
-| `favicon-32.svg`      | 32×32    | SVG | Browser tab favicon (SVG source) |
-| `favicon-32.png`      | 32×32    | PNG | Browser tab favicon (PNG, for legacy browsers) |
-| `icon-192.svg`        | 192×192  | SVG | PWA / Android home-screen icon (SVG source) |
-| `icon-192.png`        | 192×192  | PNG | PWA / Android home-screen icon (PNG) |
-| `apple-touch-icon.svg`| 180×180  | SVG | iOS Safari pinned-tab icon (SVG source) |
-| `apple-touch-icon.png`| 180×180  | PNG | iOS Safari pinned-tab icon (PNG) |
-| `og-image.svg`        | 1200×630 | SVG | Open Graph / Twitter card image (SVG source) |
-| `og-image.png`        | 1200×630 | PNG | Open Graph / Twitter card image (PNG, for embeds) |
+| `assets/logo.svg`            | 200×200  | SVG | Primary dataset logo (dark + whale + data rings) |
+| `assets/logo-200.png`        | 200×200  | PNG | PNG raster of the logo (for platforms that don't render SVG) |
+| `assets/favicon-32.svg`      | 32×32    | SVG | Browser tab favicon (SVG source) |
+| `assets/favicon-32.png`      | 32×32    | PNG | Browser tab favicon (PNG, for legacy browsers) |
+| `assets/icon-192.svg`        | 192×192  | SVG | PWA / Android home-screen icon (SVG source) |
+| `assets/icon-192.png`        | 192×192  | PNG | PWA / Android home-screen icon (PNG) |
+| `assets/apple-touch-icon.svg`| 180×180  | SVG | iOS Safari pinned-tab icon (SVG source) |
+| `assets/apple-touch-icon.png`| 180×180  | PNG | iOS Safari pinned-tab icon (PNG) |
+| `assets/og-image.svg`        | 1200×630 | SVG | Open Graph / Twitter card image (SVG source) |
+| `assets/og-image.png`        | 1200×630 | PNG | Open Graph / Twitter card image (PNG, for embeds) |
 | `_headers`            | —        | txt | Cloudflare Pages headers (cache + security) |
 | `robots.txt`          | —        | txt | Crawler rules (HF dataset viewer is the canonical) |
 
 The SVG files are the **source of truth** — the PNGs are rasters of them, generated via `rsvg-convert`. Regenerate any time the SVG changes:
 
 ```bash
-rsvg-convert -w 32   -h 32   favicon-32.svg       -o favicon-32.png
-rsvg-convert -w 180  -h 180  apple-touch-icon.svg -o apple-touch-icon.png
-rsvg-convert -w 192  -h 192  icon-192.svg         -o icon-192.png
-rsvg-convert -w 1200 -h 630  og-image.svg         -o og-image.png
-rsvg-convert -w 200  -h 200  logo.svg             -o logo-200.png
+rsvg-convert -w 32   -h 32   assets/favicon-32.svg       -o assets/favicon-32.png
+rsvg-convert -w 180  -h 180  assets/apple-touch-icon.svg -o assets/apple-touch-icon.png
+rsvg-convert -w 192  -h 192  assets/icon-192.svg         -o assets/icon-192.png
+rsvg-convert -w 1200 -h 630  assets/og-image.svg         -o assets/og-image.png
+rsvg-convert -w 200  -h 200  assets/logo.svg             -o assets/logo-200.png
 ```
 
 Use in a third-party readme:
 ```markdown
-<img src="https://huggingface.co/datasets/PeetPedro/ultrawhale-dogfood/resolve/main/logo.svg"
+<img src="https://huggingface.co/datasets/PeetPedro/ultrawhale-dogfood/resolve/main/assets/logo.svg"
      alt="Ultrawhale Dogfood" width="160"/>
 ```
 
@@ -223,7 +222,7 @@ The dataset ships with a custom logo. The whale swims in a 5-ring data loop, bre
 
 <table align="center">
   <tr>
-    <td align="center"><img src="logo.svg" alt="Ultrawhale Dogfood logo" width="120"/><br/><b>ultrawhale-dogfood</b><br/><sub>this dataset</sub></td>
+    <td align="center"><img src="assets/logo.svg" alt="Ultrawhale Dogfood logo" width="120"/><br/><b>ultrawhale-dogfood</b><br/><sub>this dataset</sub></td>
     <td align="center" valign="middle"><b>⇆ visual family</b></td>
     <td align="center"><img src="https://pocoo.vaked.dev/assets/logo.svg" alt="pocoo.vaked.dev logo" width="120"/><br/><b>pocoo</b><br/><sub>sister blog at <a href="https://pocoo.vaked.dev">pocoo.vaked.dev</a></sub></td>
   </tr>
@@ -233,7 +232,7 @@ The dataset ships with a custom logo. The whale swims in a 5-ring data loop, bre
 
 To use the logo in a third-party readme:
 ```markdown
-<img src="https://huggingface.co/datasets/PeetPedro/ultrawhale-dogfood/resolve/main/logo.svg"
+<img src="https://huggingface.co/datasets/PeetPedro/ultrawhale-dogfood/resolve/main/assets/logo.svg"
      alt="Ultrawhale Dogfood" width="160"/>
 ```
 
@@ -241,27 +240,33 @@ To use the logo in a third-party readme:
 
 ## 🧮 Mathematical Foundation
 
-The training targets in this dataset are generated under an asymmetric loss formulation that resolves the **Voting Ensemble Paradox**. Math renders with KaTeX on HF — inline as `\(...\)`, block as `$$...$$`.
+The training targets in this dataset are generated under an asymmetric loss formulation that resolves the **Voting Ensemble Paradox**. Math renders as embedded SVG images via codecogs — inline and block.
 
 ### The paradox
 
 Under unanimity-to-keep (AND) voting, the ensemble eviction indicator equals the pointwise maximum of the individual voter indicators:
 
-$$
-I_{\text{ens}}(x) = \bigvee_{i=1}^{N} I_i(x) = I_{i^*_k}(x)
-$$
+<p align="center">
+  <picture>
+    <source srcset="https://latex.codecogs.com/svg.latex?%5Ccolor%7Bwhite%7D%20I_%7B%5Ctext%7Bens%7D%7D%28x%29%20%3D%20%5Cbigvee_%7Bi%3D1%7D%5E%7BN%7D%20I_i%28x%29%20%3D%20I_%7Bi%5E%2A_k%7D%28x%29" media="(prefers-color-scheme: dark)">
+    <picture><source srcset="https://latex.codecogs.com/svg.latex?%5Ccolor%7Bwhite%7D%20I_%7B%5Ctext%7Bens%7D%7D%28x%29%20%3D%20%5Cbigvee_%7Bi%3D1%7D%5E%7BN%7D%20I_i%28x%29%20%3D%20I_%7Bi%5E%2A_k%7D%28x%29" media="(prefers-color-scheme: dark)"><img src="https://latex.codecogs.com/svg.latex?I_%7B%5Ctext%7Bens%7D%7D%28x%29%20%3D%20%5Cbigvee_%7Bi%3D1%7D%5E%7BN%7D%20I_i%28x%29%20%3D%20I_%7Bi%5E%2A_k%7D%28x%29" alt="I_{\text{ens}}(x) = \bigvee_{i=1}^{N} I_i(x) = I_{i^*_k}(x)" style="max-width:100%"/></picture>
+  </picture>
+</p>
 
-> **Notation:** \(i^*_k = \arg\min_{i \in [N]} \text{recall}_i\) — the weakest voter on each stratum sets the ensemble recall floor.
+> **Notation:** <picture><source srcset="https://latex.codecogs.com/svg.latex?%5Ccolor%7Bwhite%7D%20i%5E%2A_k%20%3D%20%5Carg%5Cmin_%7Bi%20%5Cin%20%5BN%5D%7D%20%5Ctext%7Brecall%7D_i" media="(prefers-color-scheme: dark)"><img alt="i^*_k = \arg\min_{i \in [N]} \text{recall}_i" src="https://latex.codecogs.com/svg.latex?i%5E%2A_k%20%3D%20%5Carg%5Cmin_%7Bi%20%5Cin%20%5BN%5D%7D%20%5Ctext%7Brecall%7D_i" style="vertical-align:middle;display:inline;height:1.15em"/></picture> — the weakest voter on each stratum sets the ensemble recall floor.
 
 ### The fix
 
-An asymmetric loss penalty (\(\lambda = 3.0\)) on false eviction of critical-syntactic tokens (\(T_{\text{crit}}\)):
+An asymmetric loss penalty (<picture><source srcset="https://latex.codecogs.com/svg.latex?%5Ccolor%7Bwhite%7D%20%5Clambda%20%3D%203.0" media="(prefers-color-scheme: dark)"><img alt="\lambda = 3.0" src="https://latex.codecogs.com/svg.latex?%5Clambda%20%3D%203.0" style="vertical-align:middle;display:inline;height:1.15em"/></picture>) on false eviction of critical-syntactic tokens (<picture><source srcset="https://latex.codecogs.com/svg.latex?%5Ccolor%7Bwhite%7D%20T_%7B%5Ctext%7Bcrit%7D%7D" media="(prefers-color-scheme: dark)"><img alt="T_{\text{crit}}" src="https://latex.codecogs.com/svg.latex?T_%7B%5Ctext%7Bcrit%7D%7D" style="vertical-align:middle;display:inline;height:1.15em"/></picture>):
 
-$$
-\mathcal{L}_i \;=\; \mathcal{L}_{\text{base}}(\theta_i) \;+\; \lambda \cdot \frac{1}{|T_{\text{crit}}|} \sum_{x \in T_{\text{crit}}} I^{\text{fe}}_i(x)
-$$
+<p align="center">
+  <picture>
+    <source srcset="https://latex.codecogs.com/svg.latex?%5Ccolor%7Bwhite%7D%20%5Cmathcal%7BL%7D_i%20%5C%3B%3D%5C%3B%20%5Cmathcal%7BL%7D_%7B%5Ctext%7Bbase%7D%7D%28%5Ctheta_i%29%20%5C%3B%2B%5C%3B%20%5Clambda%20%5Ccdot%20%5Cfrac%7B1%7D%7B%7CT_%7B%5Ctext%7Bcrit%7D%7D%7C%7D%20%5Csum_%7Bx%20%5Cin%20T_%7B%5Ctext%7Bcrit%7D%7D%7D%20I%5E%7B%5Ctext%7Bfe%7D%7D_i%28x%29" media="(prefers-color-scheme: dark)">
+    <picture><source srcset="https://latex.codecogs.com/svg.latex?%5Ccolor%7Bwhite%7D%20%5Cmathcal%7BL%7D_i%20%5C%3B%3D%5C%3B%20%5Cmathcal%7BL%7D_%7B%5Ctext%7Bbase%7D%7D%28%5Ctheta_i%29%20%5C%3B%2B%5C%3B%20%5Clambda%20%5Ccdot%20%5Cfrac%7B1%7D%7B%7CT_%7B%5Ctext%7Bcrit%7D%7D%7C%7D%20%5Csum_%7Bx%20%5Cin%20T_%7B%5Ctext%7Bcrit%7D%7D%7D%20I%5E%7B%5Ctext%7Bfe%7D%7D_i%28x%29" media="(prefers-color-scheme: dark)"><img src="https://latex.codecogs.com/svg.latex?%5Cmathcal%7BL%7D_i%20%5C%3B%3D%5C%3B%20%5Cmathcal%7BL%7D_%7B%5Ctext%7Bbase%7D%7D%28%5Ctheta_i%29%20%5C%3B%2B%5C%3B%20%5Clambda%20%5Ccdot%20%5Cfrac%7B1%7D%7B%7CT_%7B%5Ctext%7Bcrit%7D%7D%7C%7D%20%5Csum_%7Bx%20%5Cin%20T_%7B%5Ctext%7Bcrit%7D%7D%7D%20I%5E%7B%5Ctext%7Bfe%7D%7D_i%28x%29" alt="\mathcal{L}_i \;=\; \mathcal{L}_{\text{base}}(\theta_i) \;+\" style="max-width:100%"/></picture>
+  </picture>
+</p>
 
-### What is \(T_{\text{crit}}\)?
+### What is <picture><source srcset="https://latex.codecogs.com/svg.latex?%5Ccolor%7Bwhite%7D%20T_%7B%5Ctext%7Bcrit%7D%7D" media="(prefers-color-scheme: dark)"><img alt="T_{\text{crit}}" src="https://latex.codecogs.com/svg.latex?T_%7B%5Ctext%7Bcrit%7D%7D" style="vertical-align:middle;display:inline;height:1.15em"/></picture>?
 
 The **critical-syntactic safety floor** protects tokens that are essential for code correctness:
 
@@ -278,13 +283,13 @@ The **critical-syntactic safety floor** protects tokens that are essential for c
 
 | Math symbol | Where it shows up in the dataset |
 |---|---|
-| \(x\) | one token in a row's `answer` field |
-| \(I_i(x)\) | kompress-ultra's keep/evict decision (per token) |
-| \(I_{\text{ens}}(x)\) | the `pruner` row's `compressed_answer` after Lite pass |
-| \(T_{\text{crit}}\) | the scrub.ts regex set + kompress-ultra's safety floor |
-| \(\lambda = 3.0\) | kompress-ultra's `asymmetricPenalty` config (see paper) |
+| <picture><source srcset="https://latex.codecogs.com/svg.latex?%5Ccolor%7Bwhite%7D%20x" media="(prefers-color-scheme: dark)"><img alt="x" src="https://latex.codecogs.com/svg.latex?x" style="vertical-align:middle;display:inline;height:1.15em"/></picture> | one token in a row's `answer` field |
+| <picture><source srcset="https://latex.codecogs.com/svg.latex?%5Ccolor%7Bwhite%7D%20I_i%28x%29" media="(prefers-color-scheme: dark)"><img alt="I_i(x)" src="https://latex.codecogs.com/svg.latex?I_i%28x%29" style="vertical-align:middle;display:inline;height:1.15em"/></picture> | kompress-ultra's keep/evict decision (per token) |
+| <picture><source srcset="https://latex.codecogs.com/svg.latex?%5Ccolor%7Bwhite%7D%20I_%7B%5Ctext%7Bens%7D%7D%28x%29" media="(prefers-color-scheme: dark)"><img alt="I_{\text{ens}}(x)" src="https://latex.codecogs.com/svg.latex?I_%7B%5Ctext%7Bens%7D%7D%28x%29" style="vertical-align:middle;display:inline;height:1.15em"/></picture> | the `pruner` row's `compressed_answer` after Lite pass |
+| <picture><source srcset="https://latex.codecogs.com/svg.latex?%5Ccolor%7Bwhite%7D%20T_%7B%5Ctext%7Bcrit%7D%7D" media="(prefers-color-scheme: dark)"><img alt="T_{\text{crit}}" src="https://latex.codecogs.com/svg.latex?T_%7B%5Ctext%7Bcrit%7D%7D" style="vertical-align:middle;display:inline;height:1.15em"/></picture> | the scrub.ts regex set + kompress-ultra's safety floor |
+| <picture><source srcset="https://latex.codecogs.com/svg.latex?%5Ccolor%7Bwhite%7D%20%5Clambda%20%3D%203.0" media="(prefers-color-scheme: dark)"><img alt="\lambda = 3.0" src="https://latex.codecogs.com/svg.latex?%5Clambda%20%3D%203.0" style="vertical-align:middle;display:inline;height:1.15em"/></picture> | kompress-ultra's `asymmetricPenalty` config (see paper) |
 
-> **Why the votes of 1-3 free OpenRouter models matter:** the Lite pass treats each `answer` as the "ensemble" of N independent cheap-model generations on the same `(topic, question)` key. The asymmetry penalty guarantees \(T_{\text{crit}}\) tokens survive the vote even when a single model would have evicted them. Every `role: "pruner"` row in this dataset is a concrete witness to that guarantee.
+> **Why the votes of 1-3 free OpenRouter models matter:** the Lite pass treats each `answer` as the "ensemble" of N independent cheap-model generations on the same `(topic, question)` key. The asymmetry penalty guarantees <picture><source srcset="https://latex.codecogs.com/svg.latex?%5Ccolor%7Bwhite%7D%20T_%7B%5Ctext%7Bcrit%7D%7D" media="(prefers-color-scheme: dark)"><img alt="T_{\text{crit}}" src="https://latex.codecogs.com/svg.latex?T_%7B%5Ctext%7Bcrit%7D%7D" style="vertical-align:middle;display:inline;height:1.15em"/></picture> tokens survive the vote even when a single model would have evicted them. Every `role: "pruner"` row in this dataset is a concrete witness to that guarantee.
 
 Full math + proofs: [kompress.vaked.dev/paper/main.pdf](https://kompress.vaked.dev/paper/main.pdf).
 
@@ -644,7 +649,7 @@ This dataset ships from a NixOS systemd service using `OIDC` trust via the [HF T
 
 | Where | How |
 |---|---|
-| **Trusted publisher** (HF side) | [Settings → Trusted publishers](https://huggingface.co/settings/trusted-publishers) → add a `GitHub Actions` publisher for `peterlodri-sec/ultrameshai` workflow `dogfeed-publish.yml` |
+| **Trusted publisher** (HF side) | [Settings → Trusted publishers](https://huggingface.co/settings/trusted-publishers) → add a `GitHub Actions` publisher for `peterlodri-sec/ultrameshai` workflow `.github/workflows/publish-dataset-card.yml` |
 | **GitHub OIDC** | Workflow requests an OIDC token from `https://token.actions.githubusercontent.com` and exchanges it for an HF write token via HF's `POST /api/trusted-publishers/token` |
 | **Dev-cx53 fallback** | The systemd service still uses a long-lived `HF_TOKEN` from sops (because dev-cx53 isn't a GitHub Actions runner). The trusted-publisher path is the **secondary** path used by CI runs and by `nix run .#dogfeed-publish` from the Mac. |
 | **Mac** | The Mac is the primary build host; `nu scripts/dogfeed.nu push` reads the user's HF token from `~/.config/huggingface/token` (or `HF_TOKEN` env) — trusted-publisher is optional on the Mac. |
