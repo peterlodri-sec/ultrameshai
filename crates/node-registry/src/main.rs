@@ -1,5 +1,6 @@
 use std::sync::Arc;
 use tokio::sync::Mutex;
+use tokio::signal;
 use loop_engineering_node_registry::{NodeRegistry, TailscaleDiscovery, create_router, spawn_background_tasks};
 
 #[tokio::main]
@@ -40,7 +41,41 @@ async fn main() {
     
     tracing::info!("Starting node-registry on {}", addr);
     
-    // Run server
+    // Run server with graceful shutdown
     let listener = tokio::net::TcpListener::bind(&addr).await.unwrap();
-    axum::serve(listener, app).await.unwrap();
+    tracing::info!("node-registry listening on {}", addr);
+    
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await
+        .unwrap();
+    
+    tracing::info!("node-registry shut down gracefully");
+}
+
+/// Wait for SIGTERM or SIGINT to trigger graceful shutdown
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        signal::unix::signal(signal::unix::SignalKind::terminate())
+            .expect("failed to install SIGTERM handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
+
+    tracing::info!("shutdown signal received, draining...");
 }

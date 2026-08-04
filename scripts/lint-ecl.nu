@@ -25,7 +25,7 @@ def main [] {
     }
     
     if $errors > 0 {
-        print $"❌ ECL lint failed with ($errors) error(s)."
+        print $"❌ ECL lint failed with ($errors) errors."
         exit 1
     } else {
         print "✅ ECL lint passed."

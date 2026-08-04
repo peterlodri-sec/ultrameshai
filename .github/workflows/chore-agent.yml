@@ -1,0 +1,84 @@
+name: Chore Agent
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Weekly Monday 06:00 UTC
+  workflow_dispatch:       # Manual trigger
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  chore-refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Detect changes
+        id: detect
+        run: |
+          echo "timestamp=$(date -u +%Y-%m-%d)" >> "$GITHUB_OUTPUT"
+          echo "changed=false" >> "$GITHUB_OUTPUT"
+
+      - name: Check Rust dependencies
+        id: rust
+        run: |
+          cargo install cargo-outdated 2>/dev/null || true
+          outdated=$(cargo outdated -R 2>/dev/null | head -20 || echo "cargo-outdated not available")
+          if [ -n "$outdated" ] && [ "$outdated" != "cargo-outdated not available" ]; then
+            echo "has_updates=true" >> "$GITHUB_OUTPUT"
+            echo "details<<EOF" >> "$GITHUB_OUTPUT"
+            echo "$outdated" >> "$GITHUB_OUTPUT"
+            echo "EOF" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_updates=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check npm dependencies
+        id: npm
+        working-directory: packages/kompress-ultra
+        run: |
+          outdated=$(bun outdated 2>/dev/null | head -20 || echo "bun-outdated not available")
+          if [ -n "$outdated" ] && [ "$outdated" != "bun-outdated not available" ]; then
+            echo "has_updates=true" >> "$GITHUB_OUTPUT"
+            echo "details<<EOF" >> "$GITHUB_OUTPUT"
+            echo "$outdated" >> "$GITHUB_OUTPUT"
+            echo "EOF" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_updates=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update dogfeed.json metadata
+        run: |
+          python3 -c "
+          import json, datetime
+          with open('dogfeed.json', 'r') as f:
+              data = json.load(f)
+          data['meta']['generated'] = datetime.date.today().isoformat()
+          with open('dogfeed.json', 'w') as f:
+              json.dump(data, f, indent=2)
+          "
+
+      - name: Create PR
+        if: steps.rust.outputs.has_updates == 'true' || steps.npm.outputs.has_updates == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "chore: weekly dependency refresh (${{ steps.detect.outputs.timestamp }})"
+          title: "chore: weekly dependency + metadata refresh (${{ steps.detect.outputs.timestamp }})"
+          body: |
+            ## Autonomous Chore Agent
+
+            **Generated:** ${{ steps.detect.outputs.timestamp }}
+
+            ### Rust Dependencies
+            ${{ steps.rust.outputs.has_updates == 'true' && steps.rust.outputs.details || 'No updates detected.' }}
+
+            ### npm Dependencies (kompress-ultra)
+            ${{ steps.npm.outputs.has_updates == 'true' && steps.npm.outputs.details || 'No updates detected.' }}
+
+            ---
+            *This PR was opened autonomously by the Chore Agent. CI must pass before merging.*
+          branch: autonomous/chore-refresh-${{ steps.detect.outputs.timestamp }}
+          labels: chore,autonomous,safe-to-merge
+          delete-branch: true

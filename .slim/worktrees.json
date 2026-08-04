@@ -1,0 +1,17 @@
+{
+  "version": "1.0.0",
+  "updatedAt": "2026-06-29T00:00:00.001Z",
+  "lanes": [
+    {
+      "slug": "source-concept-designfit",
+      "branch": "omos/source-concept-designfit",
+      "path": ".worktrees/source-concept-designfit",
+      "base": "origin/main",
+      "purpose": "full source-code-concept+designFIT round — analyze all crates, architectural concepts, and design-vs-implementation fit",
+      "owner": "orchestrator",
+      "status": "archived",
+      "areas": ["crates/transport", "crates/node-registry", "crates/agent-core", "proto/", "nix/", "docs/superpowers/"],
+      "createdAt": "2026-06-29T00:00:00.000Z"
+    }
+  ]
+}

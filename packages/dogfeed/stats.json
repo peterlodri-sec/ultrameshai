@@ -1,0 +1,27 @@
+{
+  "records_generated": 7265,
+  "records_pushed": 0,
+  "tokens_used": 5866202,
+  "api_calls": 26140,
+  "errors": 0,
+  "topics_seen": [
+    "attention",
+    "causality",
+    "compression",
+    "entropy",
+    "garden",
+    "karma",
+    "language",
+    "philosophy",
+    "quantum"
+  ],
+  "models_used": [
+    "google/gemma-4-26b-a4b-it:free",
+    "local/qwen2.5:3b",
+    "nvidia/nemotron-3-nano-30b-a3b:free",
+    "openai/gpt-oss-20b:free"
+  ],
+  "uptime_sec": 0,
+  "started_at": "2026-08-04T01:14:26.646Z",
+  "exported_at": "2026-08-04T01:14:26.646Z"
+}

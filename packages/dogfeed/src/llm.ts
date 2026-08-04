@@ -4,6 +4,10 @@
 // chat-completions path and returns non-OK — see review P2 on PR #3.
 const HF_ROUTER_URL = "https://router.huggingface.co/v1/chat/completions";
 
+// Ollama runs an OpenAI-compatible API at localhost:11434.
+// https://github.com/ollama/ollama/blob/main/docs/api.md
+const OLLAMA_BASE = process.env.OLLAMA_HOST ?? "http://localhost:11434";
+
 export interface LLMResponse {
   content: string;
   model: string;
@@ -96,6 +100,48 @@ export async function askHF(
   }
 }
 
+export async function askLocal(
+  prompt: string,
+  model: string,
+  maxTokens: number,
+): Promise<LLMResponse | null> {
+  try {
+    const res = await fetch(`${OLLAMA_BASE}/api/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        messages: [{ role: "user", content: prompt }],
+        stream: false,
+        options: {
+          num_predict: maxTokens,
+          temperature: 0.7,
+        },
+      }),
+      signal: AbortSignal.timeout(120_000),
+    });
+    if (!res.ok) {
+      if (res.status === 429) await sleep(10_000);
+      return null;
+    }
+    const json = (await res.json()) as {
+      message?: { content?: string };
+      eval_count?: number;
+      prompt_eval_count?: number;
+    };
+    const content = json.message?.content?.trim();
+    if (!content) return null;
+    return {
+      content,
+      model,
+      tokens_in: json.prompt_eval_count ?? 0,
+      tokens_out: json.eval_count ?? 0,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export async function ask(
   prompt: string,
   model: string,
@@ -103,6 +149,9 @@ export async function ask(
   hfToken: string,
   maxTokens: number,
 ): Promise<LLMResponse | null> {
+  if (model.startsWith("local/")) {
+    return askLocal(prompt, model.slice(6), maxTokens);
+  }
   if (model.startsWith("hf/")) {
     return askHF(prompt, model.slice(3), hfToken, maxTokens);
   }

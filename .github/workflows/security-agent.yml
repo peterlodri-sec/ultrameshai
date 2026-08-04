@@ -1,0 +1,120 @@
+name: Security Agent
+on:
+  schedule:
+    - cron: '0 3 * * *'   # Daily 03:00 UTC
+  workflow_dispatch:        # Manual trigger
+  workflow_run:
+    workflows: ["Dependency Review"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+  security-events: write
+
+jobs:
+  security-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run cargo audit
+        id: cargo-audit
+        run: |
+          cargo install cargo-audit 2>/dev/null || true
+          result=$(cargo audit 2>&1 || true)
+          critical=$(echo "$result" | grep -c "RUSTSEC" || true)
+          echo "vulnerabilities=$critical" >> "$GITHUB_OUTPUT"
+          echo "details<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$result" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Run npm audit
+        id: npm-audit
+        working-directory: packages/kompress-ultra
+        run: |
+          result=$(bun audit 2>&1 || true)
+          critical=$(echo "$result" | grep -c "critical\|high" || true)
+          echo "vulnerabilities=$critical" >> "$GITHUB_OUTPUT"
+          echo "details<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$result" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
+      - name: Check for hardcoded secrets
+        id: secrets
+        run: |
+          # Simple pattern matching for common secret patterns
+          found=$(grep -rn --include="*.rs" --include="*.ts" --include="*.toml" \
+            -E "(api_key|secret|password|token)\s*=\s*['\"][A-Za-z0-9+/]{20,}" \
+            --exclude-dir=.git --exclude-dir=target --exclude-dir=node_modules . 2>/dev/null || true)
+          if [ -n "$found" ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+            echo "details<<EOF" >> "$GITHUB_OUTPUT"
+            echo "::warning::Potential hardcoded secrets detected"
+            echo "$found" >> "$GITHUB_OUTPUT"
+            echo "EOF" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Validate dogfeed.json constraints
+        id: dogfeed
+        run: |
+          python3 -c "
+          import json
+          with open('dogfeed.json', 'r') as f:
+              data = json.load(f)
+          constraints = data.get('constraints', {})
+          print(f\"Memory cap: {constraints.get('memory_cap_per_agent', {})}\")
+          print(f\"Protobuf max: {constraints.get('protobuf_max_bytes', 'N/A')}\")
+          " 2>&1 | tee /tmp/dogfeed-check.txt
+
+      - name: Determine severity
+        id: severity
+        run: |
+          cargo_vulns="${{ steps.cargo-audit.outputs.vulnerabilities }}"
+          npm_vulns="${{ steps.npm-audit.outputs.vulnerabilities }}"
+          secrets_found="${{ steps.secrets.outputs.found }}"
+
+          if [ "$cargo_vulns" -gt 0 ] || [ "$npm_vulns" -gt 0 ]; then
+            echo "level=critical" >> "$GITHUB_OUTPUT"
+            echo "label=urgent" >> "$GITHUB_OUTPUT"
+          elif [ "$secrets_found" = "true" ]; then
+            echo "level=warning" >> "$GITHUB_OUTPUT"
+            echo "label=security" >> "$GITHUB_OUTPUT"
+          else
+            echo "level=clean" >> "$GITHUB_OUTPUT"
+            echo "label=chore" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create PR
+        if: steps.severity.outputs.level != 'clean'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "security: automated scan (${{ steps.severity.outputs.level }})"
+          title: "security: ${{ steps.severity.outputs.level }} findings from automated scan"
+          body: |
+            ## Autonomous Security Agent
+
+            **Severity:** ${{ steps.severity.outputs.level }}
+
+            ### Cargo Audit
+            ${{ steps.cargo-audit.outputs.details || 'No vulnerabilities found.' }}
+
+            ### npm Audit
+            ${{ steps.npm-audit.outputs.details || 'No vulnerabilities found.' }}
+
+            ### Hardcoded Secrets
+            ${{ steps.secrets.outputs.found == 'true' && steps.secrets.outputs.details || 'No hardcoded secrets detected.' }}
+
+            ### Dogfeed Constraints
+            ```
+            ${{ steps.dogfeed.outputs.details || 'N/A' }}
+            ```
+
+            ---
+            *This PR was opened autonomously by the Security Agent. ${{ steps.severity.outputs.level == 'critical' && '**URGENT:** Manual review required.' || 'CI must pass before merging.' }}*
+          branch: autonomous/security-scan-${{ github.run_id }}
+          labels: ${{ steps.severity.outputs.label }},autonomous
+          delete-branch: true

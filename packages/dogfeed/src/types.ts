@@ -20,13 +20,13 @@ export interface DogfeedConfig {
 }
 
 export const DEFAULT_CONFIG: DogfeedConfig = {
-  models: ["qwen/qwen-2.5-7b-instruct:free"],
-  maxTokens: 512,
+  models: ["local/qwen2.5:3b", "openai/gpt-oss-20b:free", "nvidia/nemotron-3-nano-30b-a3b:free", "google/gemma-4-26b-a4b-it:free"],
+  maxTokens: 1024,
   intervalSec: 30,
   topics: [],
   ralphEvery: 50,
-  dailyCallLimit: 200,
-  dailyTokenLimit: 50_000,
+  dailyCallLimit: 0,
+  dailyTokenLimit: 0,
   dbPath: "./dogfeed.db",
   hfRepo: "",
   pushEvery: 50,

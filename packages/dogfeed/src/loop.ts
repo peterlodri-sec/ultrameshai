@@ -23,10 +23,10 @@ export async function iteration(
   config: DogfeedConfig,
   conn: DogfeedDB,
 ): Promise<IterationResult> {
-  if (conn.todayCalls() >= config.dailyCallLimit) {
+  if (config.dailyCallLimit > 0 && conn.todayCalls() >= config.dailyCallLimit) {
     return { record: null, topic: "", skipped: "daily call limit" };
   }
-  if (conn.todayTokens() >= config.dailyTokenLimit) {
+  if (config.dailyTokenLimit > 0 && conn.todayTokens() >= config.dailyTokenLimit) {
     return { record: null, topic: "", skipped: "daily token limit" };
   }
 
