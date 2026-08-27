@@ -230,3 +230,6 @@ mod tests {
         assert_eq!(s.history("i1"), &["REJECT", "ACCEPT"]);
     }
 }
+
+#[cfg(feature = "bench")]
+pub mod bench;
