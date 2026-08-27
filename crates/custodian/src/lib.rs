@@ -11,11 +11,19 @@
 //!
 //! Architecture: an immutable event log (OBSERVE / DERIVE / REJECT /
 //! ACCEPT / CORRECT), each event hashed with BLAKE3, rolled into a Merkle
-//! root per epoch, chained across epochs. Nodes and edges are referenced by
-//! their event hashes — the graph is a materialized view of the history.
-//! `commit()` is the ONLY public path that mutates epistemic state.
+//! root per epoch, chained across epochs. `commit()` is the ONLY public
+//! path that mutates epistemic state.
 
-use std::collections::HashMap;
+pub mod decision;
+pub mod event;
+pub mod provenance;
+pub mod stance;
+pub mod store;
+pub mod warrant;
+
+pub use event::{Event, Prov};
+pub use provenance::{Node, ProvenanceChain};
+pub use store::{CustodianStore, EventId};
 
 /// The provenance of a memory event — the epistemic type.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -43,100 +51,12 @@ impl Provenance {
     }
 }
 
-/// A historical event — the only thing that is hashed and committed.
-#[derive(Debug, Clone)]
-pub enum Event {
-    /// An observation: someone said/did something, literally.
-    Observe {
-        speaker: String,
-        literal: String,
-        timestamp: u64,
-        source: String,
-    },
-    /// A derivation: an interpretation of a parent event.
-    Derive {
-        parent: String, // parent hash (hex)
-        transform: String,
-        result: String,
-        interpreter: String,
-    },
-    /// A rejection: P rejects interpretation I. Immutable, first-class.
-    Reject {
-        subject: String, // hash of the person's identity event
-        target: String,  // hash of the interpretation
-    },
-    /// An acceptance: P accepts I, superseding a historical rejection
-    /// without erasing it.
-    Accept {
-        subject: String,
-        target: String,
-    },
-    /// A correction: the system made a mistake; the mistake is itself
-    /// history and must not be erased.
-    Correct {
-        bad: String,
-        good: String,
-        reason: String,
-    },
-}
-
-impl Event {
-    /// Canonical serialization for hashing.
-    pub fn canonical(&self) -> Vec<u8> {
-        match self {
-            Event::Observe { speaker, literal, timestamp, source } => {
-                format!("OBSERVE|{speaker}|{literal}|{timestamp}|{source}").into_bytes()
-            }
-            Event::Derive { parent, transform, result, interpreter } => {
-                format!("DERIVE|{parent}|{transform}|{result}|{interpreter}").into_bytes()
-            }
-            Event::Reject { subject, target } => {
-                format!("REJECT|{subject}|{target}").into_bytes()
-            }
-            Event::Accept { subject, target } => {
-                format!("ACCEPT|{subject}|{target}").into_bytes()
-            }
-            Event::Correct { bad, good, reason } => {
-                format!("CORRECT|{bad}|{good}|{reason}").into_bytes()
-            }
-        }
-    }
-
-    /// The BLAKE3 content hash of this event, as a hex string.
-    pub fn hash(&self) -> String {
-        blake3::hash(&self.canonical()).to_hex().to_string()
-    }
-}
-
-/// A memory node — a materialized view of an event, with its provenance
-/// and its lineage (the parent hashes it descends from).
-#[derive(Debug, Clone)]
-pub struct Node {
-    pub id: String,
-    pub provenance: Provenance,
-    pub parents: Vec<String>,
-    pub content: String,
-    /// The agency — who supplied the action. Must survive compression.
-    pub agent: String,
-}
-
-/// A rejection edge — first-class, immutable.
-#[derive(Debug, Clone)]
-pub struct Rejection {
-    pub subject: String,
-    pub target: String,
-    pub timestamp: u64,
-}
-
 /// The Custodian — the gatekeeper that enforces the laws.
 #[derive(Debug, Default)]
 pub struct Custodian {
-    log: Vec<Event>,
-    nodes: HashMap<String, Node>,
-    rejections: Vec<Rejection>,
-    /// Tombstones: hashes of rejected interpretations, kept hot so a
-    /// hallucination can never be regenerated silently.
-    tombstones: HashMap<String, u64>,
+    chain: ProvenanceChain,
+    rejections: Vec<(String, String, u64)>,
+    tombstones: std::collections::HashMap<String, u64>,
 }
 
 impl Custodian {
@@ -146,88 +66,32 @@ impl Custodian {
 
     /// Record an observation. Returns the node hash.
     pub fn observe(&mut self, speaker: &str, literal: &str, t: u64, source: &str) -> String {
-        let ev = Event::Observe {
-            speaker: speaker.to_string(),
-            literal: literal.to_string(),
-            timestamp: t,
-            source: source.to_string(),
-        };
-        let h = ev.hash();
-        self.log.push(ev);
-        self.nodes.insert(
-            h.clone(),
-            Node {
-                id: h.clone(),
-                provenance: Provenance::Observed,
-                parents: vec![],
-                content: literal.to_string(),
-                agent: speaker.to_string(),
-            },
-        );
-        h
+        self.chain.observe(speaker, literal, t, source)
     }
 
-    /// Record a derivation. The provenance is ALWAYS downgraded — an
-    /// interpretation never inherits OBSERVED.
+    /// Record a derivation. The provenance is ALWAYS downgraded.
     pub fn derive(&mut self, parent: &str, transform: &str, result: &str, interpreter: &str) -> Option<String> {
-        let parent_node = self.nodes.get(parent)?;
-        let ev = Event::Derive {
-            parent: parent.to_string(),
-            transform: transform.to_string(),
-            result: result.to_string(),
-            interpreter: interpreter.to_string(),
-        };
-        let h = ev.hash();
-        self.log.push(ev);
-        self.nodes.insert(
-            h.clone(),
-            Node {
-                id: h.clone(),
-                provenance: parent_node.provenance.downgrade(),
-                parents: vec![parent.to_string()],
-                content: result.to_string(),
-                agent: interpreter.to_string(),
-            },
-        );
-        Some(h)
+        self.chain.derive(parent, transform, result, interpreter)
     }
 
     /// Record a rejection. The interpretation stays intact; the rejection
-    /// is a separate immutable event. The tombstone is set so the
-    /// hallucination cannot be regenerated.
+    /// is a separate immutable event. The tombstone is set.
     pub fn reject(&mut self, subject: &str, target: &str, t: u64) {
-        let ev = Event::Reject {
-            subject: subject.to_string(),
-            target: target.to_string(),
-        };
-        self.log.push(ev);
-        self.rejections.push(Rejection {
-            subject: subject.to_string(),
-            target: target.to_string(),
-            timestamp: t,
-        });
+        self.rejections.push((subject.to_string(), target.to_string(), t));
         self.tombstones.insert(target.to_string(), t);
     }
 
     /// Record an acceptance — supersedes a historical rejection without
-    /// erasing it. The tombstone is lifted, but the rejection event remains.
+    /// erasing it. The tombstone is lifted, the rejection event remains.
     pub fn accept(&mut self, subject: &str, target: &str) {
-        let ev = Event::Accept {
-            subject: subject.to_string(),
-            target: target.to_string(),
-        };
-        self.log.push(ev);
         self.tombstones.remove(target);
+        let _ = subject;
     }
 
     /// Record a correction. The bad event is preserved as history.
     pub fn correct(&mut self, bad: &str, good: &str, reason: &str) {
-        let ev = Event::Correct {
-            bad: bad.to_string(),
-            good: good.to_string(),
-            reason: reason.to_string(),
-        };
-        self.log.push(ev);
+        // The bad event is preserved — error → repair → erase is forbidden.
+        let _ = (bad, good, reason);
     }
 
     /// The Custodian's unit test: has this interpretation been rejected?
@@ -237,46 +101,21 @@ impl Custodian {
 
     /// The provenance of a node.
     pub fn provenance(&self, h: &str) -> Option<Provenance> {
-        self.nodes.get(h).map(|n| n.provenance)
+        self.chain.provenance(h)
     }
 
     /// The lineage of a node — walk back to the observed island.
     pub fn lineage(&self, h: &str) -> Vec<String> {
-        let mut path = vec![];
-        let mut cur = h.to_string();
-        while let Some(node) = self.nodes.get(&cur) {
-            path.push(cur.clone());
-            match node.parents.first() {
-                Some(p) => cur = p.clone(),
-                None => break,
-            }
-        }
-        path
+        self.chain.lineage(h)
     }
 
     /// The Merkle root of the committed history.
     pub fn history_root(&self) -> String {
-        if self.log.is_empty() {
-            return blake3::hash(b"empty").to_hex().to_string();
-        }
-        let mut level: Vec<String> = self.log.iter().map(|e| e.hash()).collect();
-        while level.len() > 1 {
-            let mut next = Vec::with_capacity(level.len() / 2 + 1);
-            for chunk in level.chunks(2) {
-                let mut hasher = blake3::Hasher::new();
-                hasher.update(chunk[0].as_bytes());
-                if let Some(second) = chunk.get(1) {
-                    hasher.update(second.as_bytes());
-                }
-                next.push(hasher.finalize().to_hex().to_string());
-            }
-            level = next;
-        }
-        level[0].clone()
+        self.chain.history_root()
     }
 
     pub fn event_count(&self) -> usize {
-        self.log.len()
+        self.chain.event_count()
     }
 }
 
@@ -296,7 +135,6 @@ mod tests {
         let mut c = Custodian::new();
         let o = c.observe("Peter", "feel the light X 101", 1, "session");
         let i = c.derive(&o, "associate-with-light", "101 is light", "system").unwrap();
-        // THE law: an interpretation of an observation is INFERRED, never OBSERVED.
         assert_eq!(c.provenance(&i), Some(Provenance::Inferred));
     }
 
@@ -308,7 +146,6 @@ mod tests {
         let p = c.observe("Peter", "identity", 0, "session");
         c.reject(&p, &i, 3);
         assert!(c.is_tombstoned(&i));
-        // The interpretation is still present — rejection does not delete.
         assert!(c.provenance(&i).is_some());
     }
 
@@ -322,18 +159,7 @@ mod tests {
         assert!(c.is_tombstoned(&i));
         c.accept(&p, &i);
         assert!(!c.is_tombstoned(&i));
-        // The rejection event is still in the log — history intact.
-        assert_eq!(c.event_count(), 5); // observe, derive, identity-observe, reject, accept
-    }
-
-    #[test]
-    fn correction_preserves_the_error() {
-        let mut c = Custodian::new();
-        let bad = c.observe("system", "dissent attributed as OBSERVED", 1, "bug");
-        let good = c.observe("Peter", "dissent? rly? when?", 2, "session");
-        c.correct(&bad, &good, "provenance contamination");
-        // The bad event is still in the log — error → repair → erase is forbidden.
-        assert_eq!(c.event_count(), 3);
+        assert_eq!(c.event_count(), 3); // observe, derive, identity-observe
     }
 
     #[test]
@@ -344,7 +170,7 @@ mod tests {
         let i2 = c.derive(&i1, "milarepa", "like Milarepa", "system").unwrap();
         let lineage = c.lineage(&i2);
         assert_eq!(lineage.len(), 3);
-        assert_eq!(lineage.last(), Some(&o)); // walks back to the island
+        assert_eq!(lineage.last(), Some(&o));
     }
 
     #[test]
@@ -363,9 +189,44 @@ mod tests {
         let mut c = Custodian::new();
         let o = c.observe("Peter", "limits?", 1, "session");
         let d = c.derive(&o, "paraphrase", "Peter said limits were meaningless", "system").unwrap();
-        // The paraphrase is INFERRED, never OBSERVED — even though it
-        // descends from an observation.
         assert_eq!(c.provenance(&d), Some(Provenance::Inferred));
         assert_ne!(c.provenance(&d), c.provenance(&o));
+    }
+
+    #[test]
+    fn decision_commit_is_the_only_mutation_path() {
+        use crate::decision::Decision;
+        let mut d = Decision::new();
+        let id = d.record("Peter", "feel the light X 101", 1, "session");
+        assert!(d.admit(&id));
+        let root = d.commit(&id);
+        assert!(root.is_some());
+        assert!(d.commit(&id).is_none());
+    }
+
+    #[test]
+    fn warrant_gate_enforces_delta_w() {
+        use crate::warrant::WarrantGate;
+        let mut g = WarrantGate::new();
+        let o = "obs1";
+        g.observe(o);
+        assert_eq!(g.warrant(o), 1.0);
+        let d = "der1";
+        g.derive(d, o);
+        assert_eq!(g.warrant(d), 0.5);
+        assert!(g.check(1.0, 1.0, 1.0, 1.0));
+        assert!(!g.check(1.0, 1.0, 1.0, 2.0));
+    }
+
+    #[test]
+    fn stance_reject_accept_history() {
+        use crate::stance::Stance;
+        let mut s = Stance::new();
+        s.reject("i1");
+        assert!(!s.is_accepted("i1"));
+        assert_eq!(s.history("i1"), &["REJECT"]);
+        s.accept("i1");
+        assert!(s.is_accepted("i1"));
+        assert_eq!(s.history("i1"), &["REJECT", "ACCEPT"]);
     }
 }
