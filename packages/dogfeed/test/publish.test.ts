@@ -70,3 +70,72 @@ describe("recordsToJSONL", () => {
     expect(first.topic_category).toBe("distributed-systems");
   });
 });
+
+describe("compressBatch E2E with kompress-ultra", () => {
+  test("compresses answer and produces pruner role", async () => {
+    const { compressBatch } = await import("../src/compress");
+    const raw =
+      "I would be happy to explain the CAP theorem. Basically, in a distributed system, you can really only pick two of consistency, availability, and partition tolerance.";
+    const [compressed] = await compressBatch([raw], "lite");
+    expect(compressed).toBeDefined();
+    expect(compressed!.length).toBeLessThan(raw.length);
+  });
+});
+
+describe("publishBatch & pushAll NDJSON + latest.jsonl mirror", () => {
+  test("publishes timestamped batch, mirrors data/latest.jsonl and data/stats.json, and marks pushed", async () => {
+    const { DogfeedDB } = await import("../src/db");
+    const { publishBatch } = await import("../src/publish");
+    const { mkdtempSync, rmSync } = await import("fs");
+    const { join } = await import("path");
+
+    const dir = mkdtempSync(join(import.meta.dir, "../tmp-pub-"));
+    const db = new DogfeedDB(join(dir, "test.db"));
+    db.insertRecord({
+      topic: "distributed systems",
+      question: "What is Raft?",
+      answer: "Raft is a consensus algorithm with leader election and log replication.",
+      compressed_answer: "Raft: consensus algorithm with leader election, log replication.",
+      model: "local/qwen3.6-fast:latest",
+      tokens_in: 12,
+      tokens_out: 42,
+      hash: "dh-raft-1",
+      pushed: false,
+    });
+
+    const committedPaths: string[] = [];
+    const origFetch = globalThis.fetch;
+    globalThis.fetch = (async (url: string | URL | Request, init?: RequestInit) => {
+      const u = String(url);
+      if (u.includes("/raw/main/")) {
+        return new Response("Not Found", { status: 404 });
+      }
+      if (u.includes("/commit/main")) {
+        const body = String(init?.body ?? "");
+        const lines = body.trim().split("\n");
+        const opLine = JSON.parse(lines[1]);
+        committedPaths.push(opLine.value.path);
+        return new Response(
+          JSON.stringify({ commitOid: "deadbeef1234567890abcdef1234567890abcdef" }),
+          { status: 200, headers: { "Content-Type": "application/json" } },
+        );
+      }
+      return new Response("OK", { status: 200 });
+    }) as typeof fetch;
+
+    try {
+      const pushed = await publishBatch(db, "PeetPedro/ultrawhale-dogfood", "hf_testtoken12345", {
+        batchSize: 50,
+      });
+      expect(pushed).toBe(1);
+      expect(db.unpushedRecords().length).toBe(0);
+      expect(committedPaths.some((p) => p.startsWith("data/loop-"))).toBe(true);
+      expect(committedPaths).toContain("data/latest.jsonl");
+      expect(committedPaths).toContain("data/stats.json");
+    } finally {
+      globalThis.fetch = origFetch;
+      db.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});

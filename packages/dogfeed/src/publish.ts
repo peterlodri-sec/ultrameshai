@@ -28,9 +28,13 @@ export async function publishBatch(
   conn: DogfeedDB,
   hfRepo: string,
   hfToken: string,
-  opts: { webhookUrl?: string } = {},
+  opts: { webhookUrl?: string; batchSize?: number } = {},
 ): Promise<number> {
-  const records = conn.unpushedRecords();
+  const allUnpushed = conn.unpushedRecords();
+  const records =
+    opts.batchSize && opts.batchSize > 0
+      ? allUnpushed.slice(0, opts.batchSize)
+      : allUnpushed;
   if (records.length === 0) return 0;
 
   const jsonl = recordsToJSONL(records);
@@ -43,15 +47,8 @@ export async function publishBatch(
   const writtenFiles: string[] = [];
 
   // Push the timestamped batch file
-  const batchWrite = existingContent
-    ? null
-    : await writeHFFile(hfRepo, path, content, hfToken, "add");
-  if (existingContent) {
-    const overwrite = await writeHFFile(hfRepo, path, content, hfToken, "add");
-    if (overwrite.oid) writtenFiles.push(path);
-  } else if (batchWrite?.oid) {
-    writtenFiles.push(path);
-  }
+  const batchWrite = await writeHFFile(hfRepo, path, content, hfToken, "add");
+  if (batchWrite.oid) writtenFiles.push(path);
 
   // Mirror the latest batch to data/latest.jsonl (always fresh)
   const latestWrite = await writeHFFile(
@@ -70,7 +67,6 @@ export async function publishBatch(
     // batch. See review P2 on PR #3.
     const ids = records.map((r) => r.id!).filter(Boolean) as number[];
     conn.markPushed(ids);
-    conn.logEvent("INFO", `pushed ${records.length} records to ${hfRepo}/${path}`);
 
     // Refresh stats.json AFTER markPushed so the HF mirror matches DB state
     const stats = conn.stats();
@@ -84,11 +80,20 @@ export async function publishBatch(
     );
     if (statsWrite.oid) writtenFiles.push("data/stats.json");
 
+    const commitOid = statsWrite.oid ?? latestWrite.oid ?? batchWrite.oid ?? "";
+    conn.logEvent(
+      "INFO",
+      `pushed ${records.length} records to ${hfRepo}/${path} (commit ${commitOid})`,
+    );
+    console.log(
+      `[dogfeed] pushed ${records.length} records to ${hfRepo}/${path} (commit ${commitOid})`,
+    );
+
     // Fire-and-forget webhook to proposal.vaked.dev (if configured)
     await notifyProposal(opts.webhookUrl, {
       repo: hfRepo,
       files: writtenFiles,
-      commitOid: batchWrite?.oid ?? latestWrite.oid ?? statsWrite.oid ?? "",
+      commitOid,
       recordCount: records.length,
       timestamp: new Date().toISOString(),
     });
@@ -217,10 +222,15 @@ export async function pushAll(
 ): Promise<number> {
   let total = 0;
   while (conn.unpushedRecords().length > 0) {
-    const pushed = await publishBatch(conn, hfRepo, hfToken, opts);
+    const remaining = batchSize > 0 ? Math.max(0, batchSize - total) : 0;
+    if (batchSize > 0 && remaining === 0) break;
+    const pushed = await publishBatch(conn, hfRepo, hfToken, {
+      ...opts,
+      batchSize: remaining > 0 ? remaining : undefined,
+    });
     if (pushed === 0) break;
     total += pushed;
-    if (total >= batchSize) break;
+    if (batchSize > 0 && total >= batchSize) break;
   }
   return total;
 }

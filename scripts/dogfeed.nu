@@ -28,6 +28,26 @@ def dogfeed-pkg-dir [] {
     }
 }
 
+# Resolve HF token from explicit arg, $env.HF_TOKEN, or ~/.config/huggingface/token
+def resolve-hf-token [explicit: string = ""] {
+    if ($explicit | str length) > 0 {
+        return $explicit
+    }
+    let env_tok = ($env.HF_TOKEN? | default "")
+    if ($env_tok | str length) > 0 {
+        return $env_tok
+    }
+    let cfg_path = ($env.HOME | path join ".config/huggingface/token")
+    if ($cfg_path | path exists) {
+        return (open --raw $cfg_path | str trim)
+    }
+    let cache_path = ($env.HOME | path join ".cache/huggingface/token")
+    if ($cache_path | path exists) {
+        return (open --raw $cache_path | str trim)
+    }
+    ""
+}
+
 # A small record with the env vars the loop reads. Nushell's with-env
 # wants a record ({name=value}), not a list of {name,value} rows.
 def loop-env [
@@ -36,7 +56,7 @@ def loop-env [
 ] {
     {
         OPENROUTER_KEY: ($env.OPENROUTER_KEY? | default "")
-        HF_TOKEN:       ($env.HF_TOKEN? | default "")
+        HF_TOKEN:       (resolve-hf-token)
         DOGFEED_DB:     $db
         DOGFEED_HF_REPO: $hf_repo
     }
@@ -126,19 +146,28 @@ def "main doctor" [] {
     }
 
     # Check HF token
-    let hf_token = ($env.HF_TOKEN? | default "")
+    let hf_token = (resolve-hf-token)
     if ($hf_token | str length) > 0 {
-        print $"  HF_TOKEN: set ($hf_token | str substring 0..8)..."
+        let pfx = ($hf_token | str substring 0..8)
+        print $"  HF_TOKEN: set ($pfx)..."
     } else {
         print "  HF_TOKEN: NOT SET (publishing will fail)"
     }
 
     # Check HF repo
-    let hf_repo = ($env.HF_REPO? | default "")
+    let hf_repo = ($env.HF_REPO? | default ($env.DOGFEED_HF_REPO? | default ""))
     if ($hf_repo | str length) > 0 {
         print $"  HF_REPO: ($hf_repo)"
     } else {
         print "  HF_REPO: NOT SET"
+    }
+
+    # Check local Ollama
+    let ollama_ok = (try { http get --max-time 2sec "http://localhost:11434/api/tags" | get models | length } catch { -1 })
+    if $ollama_ok >= 0 {
+        print $"  Ollama:   reachable — ($ollama_ok) local models"
+    } else {
+        print "  Ollama:   not reachable on :11434"
     }
 
     print ""
@@ -184,9 +213,9 @@ def to-jsonl-row [r] {
         tokens_out: ($r.tokens_out | into int)
         role: $role
         source: "dogfeed-loop"
-        topic_category: ($r.topic | str downcase | str replace --all ' ' '-')
+        topic_category: ($r.topic | str lowercase | str replace --all ' ' '-')
         created_at: $r.created_at
-    } | to json
+    } | to json -r
 }
 
 def "main export" [
@@ -201,6 +230,11 @@ def "main export" [
     print "📦 Exporting to JSONL..."
     let where = (if $all { "" } else { "WHERE pushed = 0" })
     let raw = (sqlite3 --json $db $"SELECT * FROM records ($where) ORDER BY id")
+    if (($raw | str trim | str length) == 0) {
+        "" | save --force $output
+        print $"  Exported 0 records to ($output)"
+        return
+    }
     let records = (parse-rows $raw)
     let rows = ($records | each { |r| (to-jsonl-row $r) })
     $rows | str join "\n" | save --force $output
@@ -210,57 +244,54 @@ def "main export" [
 def "main push" [
     --repo: string = ""
     --token: string = ""
+    --batch: int = 50
+    --db: string = "./dogfeed.db"
 ] {
-    let repo = (if ($repo | str length) > 0 { $repo } else { $env.HF_REPO? | default "" })
-    let token = (if ($token | str length) > 0 { $token } else { $env.HF_TOKEN? | default "" })
+    let repo = (if ($repo | str length) > 0 { $repo } else { $env.HF_REPO? | default ($env.DOGFEED_HF_REPO? | default "") })
+    let token = (resolve-hf-token $token)
 
     if ($repo | str length) == 0 {
         print "❌ HF_REPO not set (use --repo or set HF_REPO env)"
         return
     }
     if ($token | str length) == 0 {
-        print "❌ HF_TOKEN not set (use --token or set HF_TOKEN env)"
+        print "❌ HF_TOKEN not set (use --token, set HF_TOKEN env, or ~/.config/huggingface/token)"
         return
     }
 
-    print $"📤 Pushing to ($repo)..."
-
-    # 1. Export unpushed records to /tmp/dogfeed-push.jsonl
-    main export --output /tmp/dogfeed-push.jsonl
-
-    # 2. Count lines in the exported file (record count is the file size)
-    let file_size = ((open --raw /tmp/dogfeed-push.jsonl | lines | length) | into int)
-    if $file_size == 0 {
-        print "  No unpushed records — nothing to do."
+    let db_abs = ($db | path expand)
+    if not ($db_abs | path exists) {
+        print $"❌ Database not found: ($db_abs)"
         return
     }
-    print $"  ($file_size) records to push"
 
-    # 3. Read the JSONL into a single string for the HF commit payload
-    let jsonl_content = (open --raw /tmp/dogfeed-push.jsonl)
-    let encoded = ($jsonl_content | into binary | encode base64)
+    let pkg = (dogfeed-pkg-dir)
+    print $"📤 Pushing up to ($batch) unpushed records from ($db_abs) to ($repo)..."
 
-    # 4. Build a commit body matching publish.ts:writeHFFile (add op)
-    let body = {
-        summary: "dogfeed push"
-        operations: [
-            { key: "data/loop-export.jsonl", value: $encoded }
-        ]
-    }
-
-    # 5. POST to the HF create_commit API
-    let res = (http post
-        --headers [
-            {name: "Authorization", value: $"Bearer ($token)"}
-            {name: "Content-Type", value: "application/json"}
-        ]
-        $"https://huggingface.co/api/datasets/($repo)/commit/main"
-        $body)
-
-    if ($res | get status) == 200 {
-        print $"  ✓ Pushed: ($file_size) records → ($repo)/data/loop-export.jsonl"
-    } else {
-        print -e $"(ansi red_bold)  Push failed: ($res | get status) — ($res.body)(ansi reset)"
+    cd $pkg
+    with-env {
+        DOGFEED_DB: $db_abs
+        DOGFEED_HF_REPO: $repo
+        HF_TOKEN: $token
+        DOGFEED_BATCH: ($batch | into string)
+    } {
+        ^bun -e '
+          import { DogfeedDB, pushAll } from "./src/index.ts";
+          const db = new DogfeedDB(process.env.DOGFEED_DB!);
+          const pushed = await pushAll(
+            db,
+            process.env.DOGFEED_HF_REPO!,
+            process.env.HF_TOKEN!,
+            Number(process.env.DOGFEED_BATCH || "50"),
+            { webhookUrl: process.env.DOGFEED_WEBHOOK_URL }
+          );
+          db.close();
+          if (pushed === 0) {
+            console.log("  No unpushed records pushed.");
+          } else {
+            console.log(`  ✓ Pushed ${pushed} records (mirrored data/latest.jsonl + data/stats.json)`);
+          }
+        '
     }
 }
 
